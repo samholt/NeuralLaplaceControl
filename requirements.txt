@@ -1,0 +1,17 @@
+gym==0.21.0
+pandas
+scipy
+pyglet
+control
+tqdm
+# torchlaplace
+
+ddeint
+keyboard
+matplotlib
+pandas
+sklearn
+torchdiffeq>=0.2.3
+torchvision
+wandb
+dotmap
