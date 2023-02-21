@@ -1,6 +1,6 @@
 # Neural Laplace Control (Code)
 
-To replicate main table of results
+This repo contains the code for the paper "Neural Laplace Control for Continuous-time Delayed Systems"
 
 1. Run/Follow steps in [install.sh](setup/install.sh)
 2. Replicate experimental results by running and configuring [run_exp_multi.py](run_exp_multi.py)
