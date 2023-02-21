@@ -4,14 +4,16 @@ scipy
 pyglet
 control
 tqdm
-# torchlaplace
-
-ddeint
-keyboard
+torchlaplace
+imageio
+pyvirtualdisplay
 matplotlib
 pandas
 sklearn
 torchdiffeq>=0.2.3
 torchvision
 wandb
-dotmap
+pyglet==1.5.27
+seaborn
+scikit-learn
+TorchDiffEqPack
