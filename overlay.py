@@ -90,7 +90,7 @@ def get_val_loss_delay_latent(model, train_env_task, env, delay=0, dt=0.05):
         train_env_task, env, samples_per_dim=5, delay=delay, latent=True
     )
     s0, a0, sb, sn = s0.to(device), a0.to(device), sb.to(device), sn.to(device)
-    ts = torch.tensor([0.05]).to(device).view(1,1).repeat(s0.shape[0],1)
+    ts = torch.tensor([0.05]).to(device).view(1, 1).repeat(s0.shape[0], 1)
     s0 = s0.double()
     sb = sb.double()
     a0 = a0.double()
@@ -155,9 +155,10 @@ def get_val_loss_delay_time_multi(
         action_buffer_size=action_buffer_size,
     )
     s0, a0, sn = s0.to(device), a0.to(device), sn.to(device)
-    ts = torch.tensor([0.05]).to(device).view(1,1).repeat(s0.shape[0],1)
-    if train_env_task == 'oderl-cartpole':
-        from oracle import cartpole_dynamics_dt_delay
+    ts = torch.tensor([0.05]).to(device).view(1, 1).repeat(s0.shape[0], 1)
+    if train_env_task == "oderl-cartpole":
+        from .oracle import cartpole_dynamics_dt_delay
+
         if encode_obs_time:
             sn = cartpole_dynamics_dt_delay(s0, a0[:, :, :1], ts, delay=delay)
         else:
@@ -181,9 +182,10 @@ def get_val_loss_delay_time_multi(
 def get_val_loss_delay(model, train_env_task, env, delay, dt=0.05, samples_per_dim=5):
     s0, a0, sn, _ = generate_irregular_data_delay(train_env_task, env, samples_per_dim=samples_per_dim, delay=delay)
     s0, a0, sn = s0.to(device), a0.to(device), sn.to(device)
-    ts = torch.tensor([0.05]).to(device).view(1,1).repeat(s0.shape[0],1)
-    if train_env_task == 'oderl-cartpole':
-        from oracle import cartpole_dynamics_dt_delay
+    ts = torch.tensor([0.05]).to(device).view(1, 1).repeat(s0.shape[0], 1)
+    if train_env_task == "oderl-cartpole":
+        from .oracle import cartpole_dynamics_dt_delay
+
         sn = cartpole_dynamics_dt_delay(s0, a0, ts, delay=delay)
     elif train_env_task == "oderl-pendulum":
         from .oracle import pendulum_dynamics_dt_delay
@@ -244,7 +246,8 @@ def generate_irregular_data_delay_latent(
         state_min = -state_max
         device_h = "cpu"
         s0_l, a0_l, sb_l, sn_l, ts_l = [], [], [], [], []
-        for ti in range(samples_per_dim):
+        # pylint: disable-next=unused-variable
+        for ti in range(samples_per_dim):  # pyright: ignore
             if rand:
                 s0s = (
                     (torch.rand(samples_per_dim**4, 4, dtype=torch.double, device=device_h) - 0.5)  # pyright: ignore
@@ -373,8 +376,12 @@ def generate_irregular_data_delay_latent(
     ts = torch.cat(ts_l, dim=0)  # pyright: ignore
 
     if delay > 0:
-        a = (torch.rand(a0.shape[0], delay, nu,  dtype=torch.double, device=device_h) - 0.5) * 2.0 * ACTION_HIGH
-        a0 = torch.cat((a0.view(a0.shape[0],-1,nu),a),dim=1)
+        a = (
+            (torch.rand(a0.shape[0], delay, nu, dtype=torch.double, device=device_h) - 0.5)  # pyright: ignore
+            * 2.0
+            * ACTION_HIGH
+        )
+        a0 = torch.cat((a0.view(a0.shape[0], -1, nu), a), dim=1)
 
     if latent:
         from .oracle import cartpole_dynamics_dt_latent
@@ -391,7 +398,8 @@ def generate_irregular_data_delay_latent(
     ts = ts.double()
     return s0.detach(), a0.detach(), sb.detach(), sn.detach(), ts.detach()
 
-def generate_irregular_data_delay(train_env_task, env, delay, samples_per_dim=None, mode='grid', rand=False):
+
+def generate_irregular_data_delay(train_env_task, env, delay, samples_per_dim=None, mode="grid", rand=False):
     if samples_per_dim is None:
         if train_env_task == "oderl-pendulum":
             samples_per_dim = 33
@@ -409,7 +417,8 @@ def generate_irregular_data_delay(train_env_task, env, delay, samples_per_dim=No
         state_min = -state_max
         device_h = "cpu"
         s0_l, a0_l, sn_l, ts_l = [], [], [], []
-        for ti in range(int(samples_per_dim * time_multiplier)):
+        # pylint: disable-next=unused-variable
+        for ti in range(int(samples_per_dim * time_multiplier)):  # pyright: ignore
             if rand:
                 s0s = (
                     (torch.rand(samples_per_dim**4, 4, dtype=torch.double, device=device_h) - 0.5)  # pyright: ignore
@@ -678,10 +687,10 @@ def generate_irregular_data_delay_time_multi(
     nu = env.action_space.shape[0]
     s0_l, a0_l, sn_l, ts_l = [], [], [], []
     action_max = torch.tensor([ACTION_HIGH] * nu)
-    device_h = 'cpu'
-    if train_env_task == 'oderl-cartpole':
-        state_max = torch.tensor([5.0, 20, torch.pi, 30]) # state_max = torch.tensor([7.0, 20, torch.pi, 30]) 
-    elif train_env_task == 'oderl-pendulum':
+    device_h = "cpu"
+    if train_env_task == "oderl-cartpole":
+        state_max = torch.tensor([5.0, 20, torch.pi, 30])  # state_max = torch.tensor([7.0, 20, torch.pi, 30])
+    elif train_env_task == "oderl-pendulum":
         state_max = torch.tensor([torch.pi, 5.0])
     elif train_env_task == "oderl-acrobot":
         state_max = torch.tensor([torch.pi, torch.pi, 5.0, 5.0])
@@ -708,12 +717,20 @@ def generate_irregular_data_delay_time_multi(
     sn = torch.cat(sn_l, dim=0)
     ts = torch.cat(ts_l, dim=0)
 
-    a = (torch.rand(a0.shape[0], action_buffer_size, nu,  dtype=torch.double, device=device_h) - 0.5) * 2.0 * ACTION_HIGH
+    a = (torch.rand(a0.shape[0], action_buffer_size, nu, dtype=torch.double, device=device_h) - 0.5) * 2.0 * ACTION_HIGH
     # a = torch.zeros_like(a)
     a[:, -(delay + 1)] = a0
     a0 = a
     if encode_obs_time:
-        a0 = torch.cat((a0, torch.flip(torch.arange(action_buffer_size),(0,)).view(1,action_buffer_size,1).repeat(a0.shape[0],1,1)),dim=2)
+        a0 = torch.cat(
+            (
+                a0,
+                torch.flip(torch.arange(action_buffer_size), (0,))
+                .view(1, action_buffer_size, 1)
+                .repeat(a0.shape[0], 1, 1),
+            ),
+            dim=2,
+        )
 
     s0 = s0.double()
     a0 = a0.double()
@@ -777,7 +794,8 @@ def generate_irregular_data(train_env_task, env, samples_per_dim=None, mode="gri
         state_min = -state_max
         device_h = "cpu"
         s0_l, a0_l, sn_l, ts_l = [], [], [], []
-        for ti in range(samples_per_dim):
+        # pylint: disable-next=unused-variable
+        for ti in range(samples_per_dim):  # pyright: ignore
             if rand:
                 s0s = (
                     (torch.rand(samples_per_dim**4, 4, dtype=torch.double, device=device_h) - 0.5)  # pyright: ignore

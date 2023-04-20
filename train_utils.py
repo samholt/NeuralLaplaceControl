@@ -5,15 +5,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import matplotlib.pyplot as plt
-import os
-from torchlaplace import laplace_reconstruct
-import time
-from config import get_config, CME_reconstruction_terms
-from copy import deepcopy
-from envs.oderl.utils.utils import batch_sq_dist
-from overlay import setup_logger, create_env, generate_irregular_data_delay_time_multi, get_val_loss_delay_time_multi, get_val_loss_delay_precomputed, compute_val_data_delay, load_expert_irregular_data_delay_time_multi
-from tqdm import tqdm
+import wandb
+from torch.multiprocessing import get_logger
 from torchdiffeq import odeint
 
 from .config import get_config, seed_all
@@ -29,7 +22,7 @@ from .w_nl import NeuralLaplaceModel
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-from torch.multiprocessing import get_logger
+
 logger = get_logger()
 
 
@@ -162,8 +155,24 @@ def get_latent_ode_model(
         obsrv_std=config.latent_ode_obsrv_std,
     )
 
-def train_model(model_name, train_env_task, config, wandb, delay, retrain=False, force_retrain=False, model_seed=0, start_from_checkpoint=False, print_settings=True, evaluate_model_when_trained=False):
-    model_saved_name = f'{model_name}_{train_env_task}_delay-{delay}_ts-grid-{config.ts_grid}_{model_seed}_train-with-expert-trajectories-{config.train_with_expert_trajectories}'
+
+def train_model(
+    model_name,  # pylint: disable=redefined-outer-name
+    train_env_task,  # pylint: disable=redefined-outer-name
+    config,  # pylint: disable=redefined-outer-name
+    wandb,  # pylint: disable=redefined-outer-name
+    delay,
+    retrain=False,
+    force_retrain=False,
+    model_seed=0,
+    start_from_checkpoint=False,
+    print_settings=True,
+    evaluate_model_when_trained=False,
+):
+    model_saved_name = (
+        f"{model_name}_{train_env_task}_delay-{delay}_ts-grid-{config.ts_grid}_"
+        f"{model_seed}_train-with-expert-trajectories-{config.train_with_expert_trajectories}"
+    )
     if config.end_training_after_seconds is None:
         model_saved_name = f"{model_saved_name}_training_for_epochs-{config.training_epochs}"
     if config.training_use_only_samples is not None:
@@ -173,22 +182,22 @@ def train_model(model_name, train_env_task, config, wandb, delay, retrain=False,
     env = create_env(train_env_task, ts_grid=config.ts_grid, dt=config.dt * config.train_dt_multiple)
     obs_state = env.reset()
     state_dim = obs_state.shape[0]
-    action_dim = env.action_space.shape[0]
-    
-    action_mean = np.array([0]*action_dim)
-    ACTION_HIGH = env.action_space.high[0]
-    if train_env_task == 'oderl-cartpole':
-        state_mean = np.array([0.0,  0.0,  0.0, 0.0, 0.0])
-        state_std = np.array([ 2.88646771, 11.54556671,  0.70729307,  0.70692035, 17.3199048 ])
-        action_std = np.array([ACTION_HIGH/2.0])
-    elif train_env_task == 'oderl-pendulum':
-        state_mean = np.array([0.0,  0.0, 0.0])
+    action_dim = env.action_space.shape[0]  # pyright: ignore
+
+    action_mean = np.array([0] * action_dim)
+    ACTION_HIGH = env.action_space.high[0]  # pyright: ignore
+    if train_env_task == "oderl-cartpole":
+        state_mean = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+        state_std = np.array([2.88646771, 11.54556671, 0.70729307, 0.70692035, 17.3199048])
+        action_std = np.array([ACTION_HIGH / 2.0])
+    elif train_env_task == "oderl-pendulum":
+        state_mean = np.array([0.0, 0.0, 0.0])
         state_std = np.array([0.70634571, 0.70784512, 2.89072771])
-        action_std = np.array([ACTION_HIGH/2.0])
-    elif train_env_task == 'oderl-acrobot':
-        state_mean = np.array([0.0,  0.0,  0.0, 0.0, 0.0, 0.0])
-        state_std = np.array([0.70711024, 0.70710328, 0.7072186 , 0.7069949 , 2.88642115, 2.88627309])
-        action_std = np.array([ACTION_HIGH/2.0])
+        action_std = np.array([ACTION_HIGH / 2.0])
+    elif train_env_task == "oderl-acrobot":
+        state_mean = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        state_std = np.array([0.70711024, 0.70710328, 0.7072186, 0.7069949, 2.88642115, 2.88627309])
+        action_std = np.array([ACTION_HIGH / 2.0])
 
     action_mean = np.array([0] * action_dim)
     ACTION_HIGH = env.action_space.high[0]  # pyright: ignore
@@ -285,7 +294,11 @@ def train_model(model_name, train_env_task, config, wandb, delay, retrain=False,
         )
     if wandb is not None:
         wandb.config.update({f"{model_name}__number_of_parameters": model_number_of_parameters}, allow_val_change=True)
-    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
+    optimizer = optim.Adam(
+        model.parameters(),  # pyright: ignore
+        lr=config.learning_rate,
+        weight_decay=config.weight_decay,
+    )
     if config.use_lr_scheduler:
         scheduler = torch.optim.lr_scheduler.StepLR(
             optimizer,
@@ -345,19 +358,23 @@ def train_model(model_name, train_env_task, config, wandb, delay, retrain=False,
                 config=config,
             )
         else:
-            s0, a0, sn, ts = generate_irregular_data_delay_time_multi(train_env_task,
-                                                                        env,
-                                                                        samples_per_dim=config.train_samples_per_dim,
-                                                                        rand=config.rand_sample,
-                                                                        delay=delay,
-                                                                        encode_obs_time=config.encode_obs_time,
-                                                                        action_buffer_size=config.action_buffer_size,
-                                                                        reuse_state_actions_when_sampling_times=config.reuse_state_actions_when_sampling_times)
-        if 'latent_ode' in model_name:
-            current_a0 = a0[:,-1,:]
-            history_s0 = s0.unfold(dimension=0, size=config.action_buffer_size, step=1).permute(0,2,1)
-            history_a0 = current_a0.unfold(dimension=0, size=config.action_buffer_size, step=1).permute(0,2,1)
-            sn, ts = sn[:-(config.action_buffer_size-1)].to(device), ts[:-(config.action_buffer_size-1)].to(device)
+            s0, a0, sn, ts = generate_irregular_data_delay_time_multi(
+                train_env_task,
+                env,
+                samples_per_dim=config.train_samples_per_dim,
+                rand=config.rand_sample,
+                delay=delay,
+                encode_obs_time=config.encode_obs_time,
+                action_buffer_size=config.action_buffer_size,
+                reuse_state_actions_when_sampling_times=config.reuse_state_actions_when_sampling_times,
+            )
+        if "latent_ode" in model_name:
+            current_a0 = a0[:, -1, :]
+            history_s0 = s0.unfold(dimension=0, size=config.action_buffer_size, step=1).permute(0, 2, 1)
+            history_a0 = current_a0.unfold(dimension=0, size=config.action_buffer_size, step=1).permute(0, 2, 1)
+            sn, ts = sn[: -(config.action_buffer_size - 1)].to(device), ts[: -(config.action_buffer_size - 1)].to(
+                device
+            )
             history_s0, history_a0 = history_s0.to(device), history_a0.to(device)
         else:
             s0, a0, sn, ts = s0.to(device), a0.to(device), sn.to(device), ts.to(device)
@@ -390,13 +407,30 @@ def train_model(model_name, train_env_task, config, wandb, delay, retrain=False,
             optimizer.step()
             cum_loss += loss.item()
             iters += 1
-            if (permutation.shape[0] == batch_size) or (iter_i % (config.iters_per_log - 1) == 0 and not iter_i == 0):
+            if (permutation.shape[0] == batch_size) or (  # pyright: ignore
+                iter_i % (config.iters_per_log - 1) == 0 and not iter_i == 0
+            ):
                 track_loss = cum_loss / iters
                 elapsed_time = time.perf_counter() - train_start_time
-                if config.sweep_mode and config.end_training_after_seconds is not None and elapsed_time > config.end_training_after_seconds:
-                    logger.info(f'[{train_env_task}\t{model_name}\td={delay}\tsamples={config.training_use_only_samples}]Ending training')
+                if (
+                    config.sweep_mode
+                    and config.end_training_after_seconds is not None
+                    and elapsed_time > config.end_training_after_seconds
+                ):
+                    # pylint: disable-next=logging-fstring-interpolation
+                    logger.info(  # pyright: ignore
+                        f"[{train_env_task}\t{model_name}\td={delay}\t"
+                        f"samples={config.training_use_only_samples}]Ending training"
+                    )
                     break
-                logger.info(f'[{train_env_task}\t{model_name}\td={delay}\tsamples={config.training_use_only_samples}][epoch={epoch_i+1:04d}|iter={iter_i+1:04d}/{int(permutation.size()[0]/batch_size):04d}|t:{int(elapsed_time)}/{config.end_training_after_seconds if config.sweep_mode else 0}] train_loss={track_loss} \t\t| s/it={(time.perf_counter() - t0)/config.iters_per_log:.5f}')
+                # pylint: disable-next=logging-fstring-interpolation
+                logger.info(  # pyright: ignore
+                    f"[{train_env_task}\t{model_name}\td={delay}\tsamples={config.training_use_only_samples}]"
+                    f"[epoch={epoch_i+1:04d}|iter={iter_i+1:04d}/"
+                    f"{int(permutation.size()[0]/batch_size):04d}|"  # pyright: ignore
+                    f"t:{int(elapsed_time)}/{config.end_training_after_seconds if config.sweep_mode else 0}] "
+                    f"train_loss={track_loss} \t\t| s/it={(time.perf_counter() - t0)/config.iters_per_log:.5f}"
+                )
                 t0 = time.perf_counter()
                 if wandb is not None:
                     wandb.log({"loss": track_loss, "epoch": epoch_i, "model_name": model_name})
@@ -405,7 +439,7 @@ def train_model(model_name, train_env_task, config, wandb, delay, retrain=False,
                 # Early stopping procedure
                 if cum_loss < best_loss:
                     best_loss = cum_loss
-                    torch.save(model.state_dict(), model_path)
+                    torch.save(model.state_dict(), model_path)  # pyright: ignore
                     waiting = 0
                 elif waiting > patience:
                     break
@@ -433,7 +467,13 @@ def train_model(model_name, train_env_task, config, wandb, delay, retrain=False,
             scheduler.step()  # pyright: ignore
         loss_l.append(loss.item())  # pyright: ignore
 
-    logger.info(f'[{train_env_task}\t{model_name}\td={delay}\tsamples={config.training_use_only_samples}][Training Finished] model: {model_name} \t|[epoch={epoch_i+1:04d}|iter={iter_i+1:04d}/{int(permutation.size()[0]/batch_size):04d}] train_loss={track_loss:.5f} \t| s/it={(time.perf_counter() - t0)/config.iters_per_log:.5f}')
+    # pylint: disable-next=logging-fstring-interpolation
+    logger.info(  # pyright: ignore
+        f"[{train_env_task}\t{model_name}\td={delay}\tsamples={config.training_use_only_samples}][Training Finished] "
+        f"model: {model_name} \t|[epoch={epoch_i+1:04d}|iter={iter_i+1:04d}/"  # pyright: ignore
+        f"{int(permutation.size()[0]/batch_size):04d}] train_loss={track_loss:.5f} \t| "  # pyright: ignore
+        f"s/it={(time.perf_counter() - t0)/config.iters_per_log:.5f}"  # pyright: ignore
+    )
     if evaluate_model_when_trained:
         total_reward = evaluate_model(
             model,  # pyright: ignore
@@ -446,10 +486,10 @@ def train_model(model_name, train_env_task, config, wandb, delay, retrain=False,
         )
     else:
         total_reward = None
-    os.makedirs('saved_models', exist_ok=True)
-    torch.save(model.state_dict(), model_path)
-    results = {'train_loss': loss.item(), 'best_val_loss': best_loss, 'total_reward': total_reward}
-    return model.eval(), results
+    os.makedirs("saved_models", exist_ok=True)
+    torch.save(model.state_dict(), model_path)  # pyright: ignore
+    results = {"train_loss": loss.item(), "best_val_loss": best_loss, "total_reward": total_reward}  # pyright: ignore
+    return model.eval(), results  # pyright: ignore
 
 
 def evaluate_model(

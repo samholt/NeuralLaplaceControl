@@ -1,64 +1,25 @@
 import logging
-import os
-from copy import deepcopy
-from time import time
 
 import matplotlib
 import matplotlib.pyplot
-import numpy as np
 import torch
-import torch.optim as optim
+from baseline_models.latent_ode_lib.create_latent_ode_model import (  # pylint: disable=import-error
+    create_LatentODE_model_direct,
+)
+from baseline_models.latent_ode_lib.plotting import (  # pylint: disable=import-error
+    Normal,
+)
+from baseline_models.latent_ode_lib.utils import (  # pylint: disable=import-error
+    compute_loss_all_batches_direct,
+)
 from torch import nn
 from torchlaplace import laplace_reconstruct
-import time
-import logging
-from config import get_config
-from copy import deepcopy
-from overlay import setup_logger, create_env, generate_irregular_data_delay, get_val_loss_delay, get_val_loss_delay_precomputed, compute_val_data_delay
-from tqdm import tqdm
-from baseline_models.original_latent_ode import GeneralLatentODEOfficial
+
+matplotlib.use("Agg")
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logger = logging.getLogger()
 
-from copy import deepcopy
-from time import strftime, time
-
-import keyboard
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-import torch
-from matplotlib import cm
-from torch import Tensor, nn
-from torchvision import datasets
-from torchvision.transforms import Compose, Lambda, ToTensor
-from tqdm import tqdm
-
-matplotlib.use("Agg")
-import argparse
-import datetime
-import time
-from random import SystemRandom
-
-import matplotlib.pyplot
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from sklearn import model_selection
-from torch.nn.functional import relu
-
-from baseline_models.latent_ode_lib.create_latent_ode_model import create_LatentODE_model_direct
-from baseline_models.latent_ode_lib.diffeq_solver import DiffeqSolver
-from baseline_models.latent_ode_lib.ode_func import ODEFunc, ODEFunc_w_Poisson
-from baseline_models.latent_ode_lib.ode_rnn import *
-from baseline_models.latent_ode_lib.parse_datasets import parse_datasets
-from baseline_models.latent_ode_lib.plotting import *
-from baseline_models.latent_ode_lib.rnn_baselines import *
-from baseline_models.latent_ode_lib.utils import compute_loss_all_batches_direct
 
 class GeneralLatentODEOfficial(nn.Module):
     def __init__(
@@ -151,7 +112,13 @@ class GeneralLatentODEOfficial(nn.Module):
             batch_action = batch_action.unsqueeze(1)
 
         observed_data = torch.cat((batch_obs, in_batch_action), dim=2)
-        data_to_predict = torch.cat((pred_batch_obs_diff.view(batch_size, 1, -1), torch.zeros((batch_size, 1, batch_action.shape[2]), device=device, dtype=torch.double)), dim=2)
+        data_to_predict = torch.cat(
+            (
+                pred_batch_obs_diff.view(batch_size, 1, -1),
+                torch.zeros((batch_size, 1, batch_action.shape[2]), device=device, dtype=torch.double),
+            ),
+            dim=2,
+        )
 
         batch = {
             "observed_data": observed_data,
@@ -254,7 +221,10 @@ class GeneralLatentODEOfficial(nn.Module):
 
     def _get_and_reset_nfes(self):
         """Returns and resets the number of function evaluations for model."""
-        iteration_nfes = self.model.encoder_z0.z0_diffeq_solver.ode_func.nfe + self.model.diffeq_solver.ode_func.nfe
-        self.model.encoder_z0.z0_diffeq_solver.ode_func.nfe = 0
+        iteration_nfes = (
+            self.model.encoder_z0.z0_diffeq_solver.ode_func.nfe  # pyright: ignore
+            + self.model.diffeq_solver.ode_func.nfe
+        )
+        self.model.encoder_z0.z0_diffeq_solver.ode_func.nfe = 0  # pyright: ignore
         self.model.diffeq_solver.ode_func.nfe = 0
         return iteration_nfes

@@ -1,7 +1,7 @@
-###########################
-# Latent ODEs for Irregularly-Sampled Time Series
-# Author: Yulia Rubanova
-###########################
+"""
+Latent ODEs for Irregularly-Sampled Time Series
+Author: Yulia Rubanova
+"""
 
 import torch
 import torch.nn as nn
@@ -11,7 +11,7 @@ from .encoder_decoder import Encoder_z0_ODE_RNN
 from .utils import init_network_weights, shift_outputs
 
 
-class ODE_RNN(Baseline):
+class ODE_RNN(Baseline):  # pylint: disable=abstract-method
     def __init__(
         self,
         input_dim,
@@ -27,7 +27,6 @@ class ODE_RNN(Baseline):
         n_labels=1,
         train_classif_w_reconstr=False,
     ):
-
         Baseline.__init__(
             self,
             input_dim,
@@ -73,11 +72,10 @@ class ODE_RNN(Baseline):
         n_traj_samples=None,
         mode=None,
     ):
-
         if (len(truth_time_steps) != len(time_steps_to_predict)) or (
             torch.sum(time_steps_to_predict - truth_time_steps) != 0
         ):
-            raise Exception("Extrapolation mode not implemented for ODE-RNN")
+            raise Exception("Extrapolation mode not implemented for ODE-RNN")  # pylint: disable=broad-exception-raised
 
         # time_steps_to_predict and truth_time_steps should be the same
         assert len(truth_time_steps) == len(time_steps_to_predict)
@@ -87,9 +85,7 @@ class ODE_RNN(Baseline):
         if mask is not None:
             data_and_mask = torch.cat([data, mask], -1)
 
-        _, _, latent_ys, _ = self.ode_gru.run_odernn(
-            data_and_mask, truth_time_steps, run_backwards=False
-        )
+        _, _, latent_ys, _ = self.ode_gru.run_odernn(data_and_mask, truth_time_steps, run_backwards=False)
 
         latent_ys = latent_ys.permute(0, 2, 1, 3)
         last_hidden = latent_ys[:, :, -1, :]
@@ -101,17 +97,13 @@ class ODE_RNN(Baseline):
         first_point = data[:, 0, :]
         outputs = shift_outputs(outputs, first_point)
 
-        extra_info = {
-            "first_point": (latent_ys[:, :, -1, :], 0.0, latent_ys[:, :, -1, :])
-        }
+        extra_info = {"first_point": (latent_ys[:, :, -1, :], 0.0, latent_ys[:, :, -1, :])}
 
         if self.use_binary_classif:
             if self.classif_per_tp:
                 extra_info["label_predictions"] = self.classifier(latent_ys)
             else:
-                extra_info["label_predictions"] = self.classifier(last_hidden).squeeze(
-                    -1
-                )
+                extra_info["label_predictions"] = self.classifier(last_hidden).squeeze(-1)
 
         # outputs shape: [n_traj_samples, n_traj, n_tp, n_dims]
         return outputs, extra_info

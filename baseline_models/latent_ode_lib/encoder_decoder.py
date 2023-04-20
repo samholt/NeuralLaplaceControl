@@ -1,7 +1,7 @@
-###########################
-# Latent ODEs for Irregularly-Sampled Time Series
-# Author: Yulia Rubanova
-###########################
+"""
+Latent ODEs for Irregularly-Sampled Time Series
+Author: Yulia Rubanova
+"""
 
 import torch
 import torch.nn as nn
@@ -112,7 +112,6 @@ class Encoder_z0_RNN(nn.Module):
         use_delta_t=True,
         device=torch.device("cpu"),
     ):
-
         super(Encoder_z0_RNN, self).__init__()
 
         self.gru_rnn_output_size = lstm_output_size
@@ -193,7 +192,6 @@ class Encoder_z0_ODE_RNN(nn.Module):
         n_gru_units=100,
         device=torch.device("cpu"),
     ):
-
         super(Encoder_z0_ODE_RNN, self).__init__()
 
         if z0_dim is None:
@@ -202,11 +200,7 @@ class Encoder_z0_ODE_RNN(nn.Module):
             self.z0_dim = z0_dim
 
         if GRU_update is None:
-            self.GRU_update = (
-                GRU_unit(latent_dim, input_dim, n_units=n_gru_units, device=device)
-                .to(device)
-                .double()
-            )
+            self.GRU_update = GRU_unit(latent_dim, input_dim, n_units=n_gru_units, device=device).to(device).double()
         else:
             self.GRU_update = GRU_update
 
@@ -229,7 +223,7 @@ class Encoder_z0_ODE_RNN(nn.Module):
         assert not torch.isnan(data).any()
         assert not torch.isnan(time_steps).any()
 
-        n_traj, n_tp, n_dims = data.size()
+        n_traj, n_tp, n_dims = data.size()  # pylint: disable=unused-variable
         if len(time_steps) == 1:
             prev_y = torch.zeros((1, n_traj, self.latent_dim)).to(self.device)
             prev_std = torch.zeros((1, n_traj, self.latent_dim)).to(self.device)
@@ -239,7 +233,6 @@ class Encoder_z0_ODE_RNN(nn.Module):
             last_yi, last_yi_std = self.GRU_update(prev_y, prev_std, xi)
             extra_info = None
         else:
-
             last_yi, last_yi_std, _, extra_info = self.run_odernn(
                 data, time_steps, run_backwards=run_backwards, save_info=save_info
             )
@@ -247,9 +240,7 @@ class Encoder_z0_ODE_RNN(nn.Module):
         means_z0 = last_yi.reshape(1, n_traj, self.latent_dim)
         std_z0 = last_yi_std.reshape(1, n_traj, self.latent_dim)
 
-        mean_z0, std_z0 = split_last_dim(
-            self.transform_z0(torch.cat((means_z0, std_z0), -1))
-        )
+        mean_z0, std_z0 = split_last_dim(self.transform_z0(torch.cat((means_z0, std_z0), -1)))
         std_z0 = std_z0.abs()
         if save_info:
             self.extra_info = extra_info
@@ -259,7 +250,7 @@ class Encoder_z0_ODE_RNN(nn.Module):
     def run_odernn(self, data, time_steps, run_backwards=True, save_info=False):
         # IMPORTANT: assumes that 'data' already has mask concatenated to it
 
-        n_traj, n_tp, n_dims = data.size()
+        n_traj, n_tp, n_dims = data.size()  # pylint: disable=unused-variable
         extra_info = []
 
         device = get_device(data)
@@ -286,7 +277,7 @@ class Encoder_z0_ODE_RNN(nn.Module):
         for i in time_points_iter:
             if (prev_t - t_i) < minimum_step:
                 time_points = torch.stack((prev_t, t_i))
-                inc = self.z0_diffeq_solver.ode_func(prev_t, prev_y) * (t_i - prev_t)
+                inc = self.z0_diffeq_solver.ode_func(prev_t, prev_y) * (t_i - prev_t)  # pyright: ignore
 
                 assert not torch.isnan(inc).any()
 
@@ -298,7 +289,7 @@ class Encoder_z0_ODE_RNN(nn.Module):
                 n_intermediate_tp = max(2, ((prev_t - t_i) / minimum_step).int())
 
                 time_points = linspace_vector(prev_t, t_i, n_intermediate_tp)
-                ode_sol = self.z0_diffeq_solver(prev_y, time_points)
+                ode_sol = self.z0_diffeq_solver(prev_y, time_points)  # pyright: ignore
 
                 assert not torch.isnan(ode_sol).any()
 
@@ -330,10 +321,10 @@ class Encoder_z0_ODE_RNN(nn.Module):
 
         latent_ys = torch.stack(latent_ys, 1)
 
-        assert not torch.isnan(yi).any()
-        assert not torch.isnan(yi_std).any()
+        assert not torch.isnan(yi).any()  # pyright: ignore
+        assert not torch.isnan(yi_std).any()  # pyright: ignore
 
-        return yi, yi_std, latent_ys, extra_info
+        return yi, yi_std, latent_ys, extra_info  # pyright: ignore
 
 
 class Decoder(nn.Module):

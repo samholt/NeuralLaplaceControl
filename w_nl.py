@@ -1,21 +1,11 @@
 import logging
-import os
-import time
-from copy import deepcopy
-from typing import Any
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
-import wandb
 from torchlaplace import laplace_reconstruct
-import time
-import logging
-from config import get_config, CME_reconstruction_terms
-from copy import deepcopy
-from overlay import setup_logger, create_env, generate_irregular_data_delay_time_multi, get_val_loss_delay_time_multi, get_val_loss_delay_precomputed, compute_val_data_delay
-from tqdm import tqdm
+
+from .config import CME_reconstruction_terms
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logger = logging.getLogger()
@@ -100,11 +90,11 @@ class NeuralLaplaceModel(nn.Module):
         laplace_latent_dim = state_dim + action_encoder_latent_dim
         self.latent_dim = latent_dim
         self.action_encoder = ReverseGRUEncoder(
-                action_dim,
-                action_encoder_latent_dim,
-                hidden_units // 2,
-                encode_obs_time=encode_obs_time,
-            )
+            action_dim,
+            action_encoder_latent_dim,
+            hidden_units // 2,
+            encode_obs_time=encode_obs_time,
+        )
         self.laplace_rep_func = LaplaceRepresentationFunc(
             s_recon_terms, state_dim, laplace_latent_dim, hidden_units=hidden_units
         )
@@ -141,7 +131,7 @@ class NeuralLaplaceModel(nn.Module):
         if len(batch_action.shape) == 2:
             batch_action = batch_action.unsqueeze(1)
         p_action = self.action_encoder(batch_action)
-        sa_in = torch.cat((batch_obs, p_action), axis=1)
+        sa_in = torch.cat((batch_obs, p_action), axis=1)  # pyright: ignore
         p = sa_in
         return torch.squeeze(
             laplace_reconstruct(

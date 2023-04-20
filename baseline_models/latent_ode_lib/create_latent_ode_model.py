@@ -1,18 +1,12 @@
-###########################
-# Latent ODEs for Irregularly-Sampled Time Series
-# Author: Yulia Rubanova
-###########################
+"""
+Latent ODEs for Irregularly-Sampled Time Series
+Author: Yulia Rubanova
+"""
 
-import os
-
-import numpy as np
-import torch
 import torch.nn as nn
-from torch.distributions.normal import Normal
-from torch.nn.functional import relu
 
 from .diffeq_solver import DiffeqSolver
-from .encoder_decoder import *
+from .encoder_decoder import Decoder, Encoder_z0_ODE_RNN, Encoder_z0_RNN
 from .latent_ode import LatentODE
 from .ode_func import ODEFunc, ODEFunc_w_Poisson
 from .utils import create_net
@@ -39,17 +33,12 @@ def create_LatentODE_model_direct(
     linear_classif=False,
     dataset="",
 ):
-
     dim = latents
     if poisson:
-        lambda_net = create_net(
-            dim, input_dim, n_layers=1, n_units=units, nonlinear=nn.Tanh
-        )
+        lambda_net = create_net(dim, input_dim, n_layers=1, n_units=units, nonlinear=nn.Tanh)
 
         # ODE function produces the gradient for latent state and for poisson rate
-        ode_func_net = create_net(
-            dim * 2, latents * 2, n_layers=gen_layers, n_units=units, nonlinear=nn.Tanh
-        )
+        ode_func_net = create_net(dim * 2, latents * 2, n_layers=gen_layers, n_units=units, nonlinear=nn.Tanh)
 
         gen_ode_func = (
             ODEFunc_w_Poisson(
@@ -64,9 +53,7 @@ def create_LatentODE_model_direct(
         )
     else:
         dim = latents
-        ode_func_net = create_net(
-            dim, latents, n_layers=gen_layers, n_units=units, nonlinear=nn.Tanh
-        )
+        ode_func_net = create_net(dim, latents, n_layers=gen_layers, n_units=units, nonlinear=nn.Tanh)
 
         gen_ode_func = (
             ODEFunc(
@@ -133,14 +120,10 @@ def create_LatentODE_model_direct(
 
     elif z0_encoder == "rnn":
         encoder_z0 = (
-            Encoder_z0_RNN(
-                z0_dim, enc_input_dim, lstm_output_size=n_rec_dims, device=device
-            )
-            .to(device)
-            .double()
+            Encoder_z0_RNN(z0_dim, enc_input_dim, lstm_output_size=n_rec_dims, device=device).to(device).double()
         )
     else:
-        raise Exception("Unknown encoder for Latent ODE model: " + z0_encoder)
+        raise Exception("Unknown encoder for Latent ODE model: " + z0_encoder)  # pylint: disable=broad-exception-raised
 
     decoder = Decoder(latents, gen_data_dim).to(device).double()
 
@@ -178,15 +161,10 @@ def create_LatentODE_model_direct(
     return model
 
 
-def create_LatentODE_model(
-    args, input_dim, z0_prior, obsrv_std, device, classif_per_tp=False, n_labels=1
-):
-
+def create_LatentODE_model(args, input_dim, z0_prior, obsrv_std, device, classif_per_tp=False, n_labels=1):
     dim = args.latents
     if args.poisson:
-        lambda_net = create_net(
-            dim, input_dim, n_layers=1, n_units=args.units, nonlinear=nn.Tanh
-        )
+        lambda_net = create_net(dim, input_dim, n_layers=1, n_units=args.units, nonlinear=nn.Tanh)
 
         # ODE function produces the gradient for latent state and for poisson rate
         ode_func_net = create_net(
@@ -283,14 +261,12 @@ def create_LatentODE_model(
 
     elif args.z0_encoder == "rnn":
         encoder_z0 = (
-            Encoder_z0_RNN(
-                z0_dim, enc_input_dim, lstm_output_size=n_rec_dims, device=device
-            )
-            .to(device)
-            .double()
+            Encoder_z0_RNN(z0_dim, enc_input_dim, lstm_output_size=n_rec_dims, device=device).to(device).double()
         )
     else:
-        raise Exception("Unknown encoder for Latent ODE model: " + args.z0_encoder)
+        raise Exception(  # pylint: disable=broad-exception-raised
+            "Unknown encoder for Latent ODE model: " + args.z0_encoder
+        )
 
     decoder = Decoder(args.latents, gen_data_dim).to(device).double()
 

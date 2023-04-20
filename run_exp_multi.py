@@ -95,7 +95,8 @@ def mppi_with_model_evaluate_single_step_wrapper(args, **kwargs):
     logger.info(f"[Evaluate Result] result={results}")  # pyright: ignore
     return results
 
-def main(config, wandb=None):
+
+def main(config, wandb=None):  # pylint: disable=redefined-outer-name
     model_training_results_l = []
     model_eval_results_l = []
 
