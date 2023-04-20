@@ -85,11 +85,9 @@ def mppi_with_model_evaluate_single_step_wrapper(args, **kwargs):
     return results
 
 def main(config, wandb=None):
-    # Re-train all the models
     model_training_results_l = []
     model_eval_results_l = []
 
-    # Train all models in parallel as much as possible, eh ?
     pool_outer = multiprocessing.Pool(config.collect_expert_cores_per_env_sampler)
     if config.retrain:
         train_all_model_inputs = [(env_name, delay, model_name) for env_name in ENVIRONMENTS for delay in DELAYS for model_name in trainable_models]

@@ -70,12 +70,6 @@ def get_val_loss_delay_latent(model, train_env_task, env, delay=0, dt=0.05):
     s0, a0, sb, sn, _ = generate_irregular_data_delay_latent(train_env_task, env, samples_per_dim=5, delay=delay, latent=True)
     s0, a0, sb, sn = s0.to(device), a0.to(device), sb.to(device), sn.to(device)
     ts = torch.tensor([0.05]).to(device).view(1,1).repeat(s0.shape[0],1)
-    # if train_env_task == 'oderl-cartpole':
-    #     from oracle import cartpole_dynamics_dt_latent
-    #     sn = cartpole_dynamics_dt_latent(sb, s0, a0, ts)
-    # elif train_env_task == 'oderl-pendulum':
-    #     from oracle import pendulum_dynamics_dt_delay
-    #     sn = pendulum_dynamics_dt_delay(s0, a0, ts, delay=delay)
     s0 = s0.double()
     sb = sb.double()
     a0 = a0.double()
@@ -109,8 +103,6 @@ def compute_val_data_delay(train_env_task, env, delay, dt=0.05, samples_per_dim=
 def get_val_loss_delay_time_multi(model, train_env_task, env, delay, dt=0.05, samples_per_dim=5, encode_obs_time=False, action_buffer_size=5):
     s0, a0, sn, _ = generate_irregular_data_delay_time_multi(train_env_task, env, samples_per_dim=samples_per_dim, delay=delay, encode_obs_time=encode_obs_time, action_buffer_size=action_buffer_size)
     s0, a0, sn = s0.to(device), a0.to(device), sn.to(device)
-    # s0, a0, sn, ts = generate_irregular_data_delay_time_multi(train_env_task, env, samples_per_dim=samples_per_dim, delay=delay)
-    # s0, a0, sn, ts = s0.to(device), a0.to(device), sn.to(device), ts.to(device)
     ts = torch.tensor([0.05]).to(device).view(1,1).repeat(s0.shape[0],1)
     if train_env_task == 'oderl-cartpole':
         from oracle import cartpole_dynamics_dt_delay
@@ -135,7 +127,6 @@ def get_val_loss_delay_time_multi(model, train_env_task, env, delay, dt=0.05, sa
 def get_val_loss_delay(model, train_env_task, env, delay, dt=0.05, samples_per_dim=5):
     s0, a0, sn, _ = generate_irregular_data_delay(train_env_task, env, samples_per_dim=samples_per_dim, delay=delay)
     s0, a0, sn = s0.to(device), a0.to(device), sn.to(device)
-    # s0, a0, sn, ts = s0.to(device), a0.to(device), sn.to(device), ts.to(device)
     ts = torch.tensor([0.05]).to(device).view(1,1).repeat(s0.shape[0],1)
     if train_env_task == 'oderl-cartpole':
         from oracle import cartpole_dynamics_dt_delay
@@ -178,24 +169,14 @@ def generate_irregular_data_delay_latent(train_env_task, env, delay, samples_per
         elif train_env_task == 'oderl-acrobot':
             samples_per_dim = 15
 
-    # Cartpole
-    # Return s0, a0, sn, ts
-
-    # Sample multiple ts
-    # Sample states randomly too !
-    # Everything becomes stochastic, and rand should be uniform within those bounds etc
-    # NL should outperform !
     ACTION_HIGH = env.action_space.high[0]
     ACTION_LOW = env.action_space.low[0]
     nu = env.action_space.shape[0]
     if train_env_task == 'oderl-cartpole':
         state_max = torch.tensor([5.0, 20, torch.pi, 30])
-        # state_max = torch.tensor([3.0, 1.0, torch.pi, 3.0])
-        # state_max = torch.tensor([1.0, 1.0, torch.pi/8.0, 3.0])
         state_min = -state_max
         device_h = 'cpu'
         s0_l, a0_l, sb_l, sn_l, ts_l = [], [], [], [], []
-        # for ti in tqdm(range(samples_per_dim)):
         for ti in range(samples_per_dim):
             if rand:
                 s0s = (torch.rand(samples_per_dim**4, 4, dtype=torch.double, device=device_h) - 0.5) * 2.0 * state_max
@@ -277,22 +258,9 @@ def generate_irregular_data_delay_latent(train_env_task, env, delay, samples_per
     sn = torch.cat(sn_l, dim=0)
     ts = torch.cat(ts_l, dim=0)
 
-    # from oracle import pendulum_dynamics_dt
-    # from oracle import acrobot_dynamics_dt
-    # from oracle import cartpole_dynamics_dt
-    # sn = pendulum_dynamics_dt(s0, a0, ts)
-    # sn = acrobot_dynamics_dt(s0, a0, ts)
-
-    # print(f'This should always be near zero: {((sn - cartpole_dynamics_dt(s0, a0, ts))**2).mean()}') #  Can investigate to make zero
-    # print(f'This should always be near zero: {((sn - pendulum_dynamics_dt(s0, a0, ts))**2).mean()}')
-    # print(f'This should always be near zero: {((sn - acrobot_dynamics_dt(s0, a0, ts))**2).mean()}')
     if delay > 0:
         a = (torch.rand(a0.shape[0], delay, nu,  dtype=torch.double, device=device_h) - 0.5) * 2.0 * ACTION_HIGH
-        # a = torch.zeros_like(a)
         a0 = torch.cat((a0.view(a0.shape[0],-1,nu),a),dim=1)
-
-    # from oracle import cartpole_dynamics_dt_delay
-    # print(f'This should always be near zero: {((sn - cartpole_dynamics_dt_delay(s0, a0, ts, delay=delay))**2).mean()}')
 
     if latent:
         from oracle import cartpole_dynamics_dt_latent
@@ -308,7 +276,7 @@ def generate_irregular_data_delay_latent(train_env_task, env, delay, samples_per
     ts = ts.double()
     return s0.detach(), a0.detach(), sb.detach(), sn.detach(), ts.detach()
 
-def generate_irregular_data_delay(train_env_task, env, delay, samples_per_dim=None, mode='grid', rand=False): #, time_multiplier=10): # Delay is number of timesteps dt
+def generate_irregular_data_delay(train_env_task, env, delay, samples_per_dim=None, mode='grid', rand=False):
     if samples_per_dim is None:
         if train_env_task == 'oderl-pendulum':
             samples_per_dim = 33
@@ -317,25 +285,15 @@ def generate_irregular_data_delay(train_env_task, env, delay, samples_per_dim=No
         elif train_env_task == 'oderl-acrobot':
             samples_per_dim = 15
 
-    # time_multiplier = samples_per_dim
     time_multiplier = 10
-    # Cartpole
-    # Return s0, a0, sn, ts
-
-    # Sample multiple ts
-    # Sample states randomly too !
-    # Everything becomes stochastic, and rand should be uniform within those bounds etc
-    # NL should outperform !
     ACTION_HIGH = env.action_space.high[0]
     ACTION_LOW = env.action_space.low[0]
     nu = env.action_space.shape[0]
     if train_env_task == 'oderl-cartpole':
         state_max = torch.tensor([5.0, 20, torch.pi, 30])
-        # state_max = torch.tensor([1.0, 1.0, torch.pi/8.0, 3.0])
         state_min = -state_max
         device_h = 'cpu'
         s0_l, a0_l, sn_l, ts_l = [], [], [], []
-        # for ti in tqdm(range(samples_per_dim)):
         for ti in range(int(samples_per_dim * time_multiplier)):
             if rand:
                 s0s = (torch.rand(samples_per_dim**4, 4, dtype=torch.double, device=device_h) - 0.5) * 2.0 * state_max
@@ -416,22 +374,10 @@ def generate_irregular_data_delay(train_env_task, env, delay, samples_per_dim=No
     sn = torch.cat(sn_l, dim=0)
     ts = torch.cat(ts_l, dim=0)
 
-    # from oracle import pendulum_dynamics_dt
-    # from oracle import acrobot_dynamics_dt
-    # from oracle import cartpole_dynamics_dt
-    # sn = pendulum_dynamics_dt(s0, a0, ts)
-    # sn = acrobot_dynamics_dt(s0, a0, ts)
-
-    # print(f'This should always be near zero: {((sn - cartpole_dynamics_dt(s0, a0, ts))**2).mean()}') #  Can investigate to make zero
-    # print(f'This should always be near zero: {((sn - pendulum_dynamics_dt(s0, a0, ts))**2).mean()}')
-    # print(f'This should always be near zero: {((sn - acrobot_dynamics_dt(s0, a0, ts))**2).mean()}')
     if delay > 0:
         a = (torch.rand(a0.shape[0], delay, nu,  dtype=torch.double, device=device_h) - 0.5) * 2.0 * ACTION_HIGH
         # a = torch.zeros_like(a)
         a0 = torch.cat((a0.view(a0.shape[0],-1,nu),a),dim=1)
-
-    # from oracle import cartpole_dynamics_dt_delay
-    # print(f'This should always be near zero: {((sn - cartpole_dynamics_dt_delay(s0, a0, ts, delay=delay))**2).mean()}')
 
     s0 = s0.double()
     a0 = a0.double()
@@ -517,8 +463,7 @@ def generate_irregular_data_delay_time_multi(train_env_task,
     action_max = torch.tensor([ACTION_HIGH] * nu)
     device_h = 'cpu'
     if train_env_task == 'oderl-cartpole':
-        state_max = torch.tensor([5.0, 20, torch.pi, 30]) # state_max = torch.tensor([7.0, 20, torch.pi, 30]) # state_max = torch.tensor([1.0, 1.0, torch.pi/8.0, 3.0])
-        # state_max = torch.tensor([2.0, 5.0, torch.pi/8.0, 5.0]) # state_max = torch.tensor([7.0, 20, torch.pi, 30]) # state_max = torch.tensor([1.0, 1.0, torch.pi/8.0, 3.0])
+        state_max = torch.tensor([5.0, 20, torch.pi, 30]) # state_max = torch.tensor([7.0, 20, torch.pi, 30]) 
     elif train_env_task == 'oderl-pendulum':
         state_max = torch.tensor([torch.pi, 5.0])
     elif train_env_task == 'oderl-acrobot':
@@ -541,34 +486,12 @@ def generate_irregular_data_delay_time_multi(train_env_task,
     sn = torch.cat(sn_l, dim=0)
     ts = torch.cat(ts_l, dim=0)
 
-    # from oracle import pendulum_dynamics_dt
-    # from oracle import acrobot_dynamics_dt
-    # from oracle import cartpole_dynamics_dt
-    # sn = pendulum_dynamics_dt(s0, a0, ts)
-    # sn = acrobot_dynamics_dt(s0, a0, ts)
-
-    # print(f'This should always be near zero: {((sn - cartpole_dynamics_dt(s0, a0, ts))**2).mean()}') #  Can investigate to make zero
-    # print(f'This should always be near zero: {((sn - pendulum_dynamics_dt(s0, a0, ts))**2).mean()}')
-    # print(f'This should always be near zero: {((sn - acrobot_dynamics_dt(s0, a0, ts))**2).mean()}')
-    # if delay > 0:
     a = (torch.rand(a0.shape[0], action_buffer_size, nu,  dtype=torch.double, device=device_h) - 0.5) * 2.0 * ACTION_HIGH
     # a = torch.zeros_like(a)
     a[:,-(delay+1)] = a0
     a0 = a
     if encode_obs_time:
         a0 = torch.cat((a0, torch.flip(torch.arange(action_buffer_size),(0,)).view(1,action_buffer_size,1).repeat(a0.shape[0],1,1)),dim=2)
-        # a0 = torch.cat((a0.view(a0.shape[0],-1,nu),a),dim=1)
-
-    # from oracle import cartpole_dynamics_dt_delay
-    # print(f'This should always be near zero: {((sn - cartpole_dynamics_dt_delay(s0, a0, ts, delay=delay))**2).mean()}') #  Can investigate to make zero
-
-    # from oracle import cartpole_dynamics_dt_delay
-    # print(f'This should always be near zero: {((sn - cartpole_dynamics_dt_delay(s0, a0, ts, delay=delay))**2).mean()}')
-    # from oracle import acrobot_dynamics_dt_delay
-    # print(f'This should always be near zero: {((sn - acrobot_dynamics_dt_delay(s0, a0, ts, delay=delay))**2).mean()}')
-
-    # from oracle import pendulum_dynamics_dt_delay
-    # print(f'This should always be near zero: {((sn - pendulum_dynamics_dt_delay(s0, a0, ts, delay=delay))**2).mean()}')
 
     s0 = s0.double()
     a0 = a0.double()
@@ -603,27 +526,6 @@ def load_expert_irregular_data_delay_time_multi(train_env_task,
                                 ts_grid = config.collect_expert_ts_grid,
                                 intermediate_run=False)
     (s0, a0, sn, ts) = final_data
-    # from oracle import pendulum_dynamics_dt
-    # from oracle import acrobot_dynamics_dt
-    # from oracle import cartpole_dynamics_dt
-    # sn = pendulum_dynamics_dt(s0, a0, ts)
-    # sn = acrobot_dynamics_dt(s0, a0, ts)
-
-    # print(f'This should always be near zero: {((sn - cartpole_dynamics_dt(s0, a0, ts))**2).mean()}') #  Can investigate to make zero
-    # print(f'This should always be near zero: {((sn - pendulum_dynamics_dt(s0, a0, ts))**2).mean()}')
-    # print(f'This should always be near zero: {((sn - acrobot_dynamics_dt(s0, a0, ts))**2).mean()}')
-
-
-    # from oracle import cartpole_dynamics_dt_delay
-    # print(f'This should always be near zero: {((sn - cartpole_dynamics_dt_delay(s0, a0, ts, delay=delay))**2).mean()}') #  Can investigate to make zero
-
-    # from oracle import cartpole_dynamics_dt_delay
-    # print(f'This should always be near zero: {((sn - cartpole_dynamics_dt_delay(s0, a0, ts, delay=delay))**2).mean()}')
-    # from oracle import acrobot_dynamics_dt_delay
-    # print(f'This should always be near zero: {((sn - acrobot_dynamics_dt_delay(s0, a0, ts, delay=delay))**2).mean()}')
-
-    # from oracle import pendulum_dynamics_dt_delay
-    # print(f'This should always be near zero: {((sn - pendulum_dynamics_dt_delay(s0, a0, ts, delay=delay))**2).mean()}')
 
     s0 = s0.double()
     a0 = a0.double()
@@ -640,13 +542,6 @@ def generate_irregular_data(train_env_task, env, samples_per_dim=None, mode='gri
         elif train_env_task == 'oderl-acrobot':
             samples_per_dim = 15
 
-    # Cartpole
-    # Return s0, a0, sn, ts
-
-    # Sample multiple ts
-    # Sample states randomly too !
-    # Everything becomes stochastic, and rand should be uniform within those bounds etc
-    # NL should outperform !
     ACTION_HIGH = env.action_space.high[0]
     ACTION_LOW = env.action_space.low[0]
     if train_env_task == 'oderl-cartpole':
@@ -654,7 +549,6 @@ def generate_irregular_data(train_env_task, env, samples_per_dim=None, mode='gri
         state_min = -state_max
         device_h = 'cpu'
         s0_l, a0_l, sn_l, ts_l = [], [], [], []
-        # for ti in tqdm(range(samples_per_dim)):
         for ti in range(samples_per_dim):
             if rand:
                 s0s = (torch.rand(samples_per_dim**4, 4, dtype=torch.double, device=device_h) - 0.5) * 2.0 * state_max
@@ -735,15 +629,6 @@ def generate_irregular_data(train_env_task, env, samples_per_dim=None, mode='gri
     sn = torch.cat(sn_l, dim=0)
     ts = torch.cat(ts_l, dim=0)
 
-    # from oracle import pendulum_dynamics_dt
-    # from oracle import acrobot_dynamics_dt
-    # from oracle import cartpole_dynamics_dt
-    # sn = pendulum_dynamics_dt(s0, a0, ts)
-    # sn = acrobot_dynamics_dt(s0, a0, ts)
-
-    # print(f'This should always be near zero: {((sn - cartpole_dynamics_dt(s0, a0, ts))**2).mean()}') #  Can investigate to make zero
-    # print(f'This should always be near zero: {((sn - pendulum_dynamics_dt(s0, a0, ts))**2).mean()}')
-    # print(f'This should always be near zero: {((sn - acrobot_dynamics_dt(s0, a0, ts))**2).mean()}')
     s0 = s0.double()
     a0 = a0.double()
     sn = sn.double()

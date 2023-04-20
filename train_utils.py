@@ -11,15 +11,11 @@ from config import get_config, CME_reconstruction_terms
 from copy import deepcopy
 from envs.oderl.utils.utils import batch_sq_dist
 from overlay import setup_logger, create_env, generate_irregular_data_delay_time_multi, get_val_loss_delay_time_multi, get_val_loss_delay_precomputed, compute_val_data_delay, load_expert_irregular_data_delay_time_multi
-# from oracle import cartpole_dynamics
 from tqdm import tqdm
 from torchdiffeq import odeint
 import random
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-# import logging
-# logger = logging.getLogger()
 
 from torch.multiprocessing import get_logger
 logger = get_logger()
@@ -105,7 +101,6 @@ def get_latent_ode_model(state_dim, action_dim, state_mean, action_mean, state_s
                 )
 
 def train_model(model_name, train_env_task, config, wandb, delay, retrain=False, force_retrain=False, model_seed=0, start_from_checkpoint=False, print_settings=True, evaluate_model_when_trained=False):
-    # model_saved_name = f'{model_name}_{train_env_task}_delay-{delay}_ts-grid-{config.ts_grid}_{model_seed}_train-with-expert-trajectories-{config.train_with_expert_trajectories}_observation-noise-{config.observation_noise}_friction-{config.friction}'
     model_saved_name = f'{model_name}_{train_env_task}_delay-{delay}_ts-grid-{config.ts_grid}_{model_seed}_train-with-expert-trajectories-{config.train_with_expert_trajectories}'
     if config.end_training_after_seconds is None:
         model_saved_name = f'{model_saved_name}_training_for_epochs-{config.training_epochs}'
@@ -117,19 +112,6 @@ def train_model(model_name, train_env_task, config, wandb, delay, retrain=False,
     obs_state = env.reset()
     state_dim = obs_state.shape[0]
     action_dim = env.action_space.shape[0]
-
-    # logger.info(f'[Test logging when training] {model_name}, {train_env_task}, {config}, {wandb}, {delay}')
-    # s0, a0, sn, ts = generate_irregular_data_delay_time_multi(train_env_task, env, samples_per_dim=2, rand=config.rand_sample, delay=delay)
-    # if not retrain:
-    #     s0, a0, sn, ts = generate_irregular_data_delay_time_multi(train_env_task, env, samples_per_dim=2, rand=config.rand_sample, delay=delay)
-    # else:    
-    #     s0, a0, sn, ts = generate_irregular_data_delay_time_multi(train_env_task, env, samples_per_dim=15, rand=config.rand_sample, delay=delay)
-
-    # state_mean = s0.mean(0).detach().cpu().numpy()
-    # state_std = s0.std(0).detach().cpu().numpy()
-    # action_mean = a0.mean().detach().cpu().numpy()
-    # ACTION_HIGH = env.action_space.high[0]
-    # action_std = np.array([ACTION_HIGH/2.0])
     
     action_mean = np.array([0]*action_dim)
     ACTION_HIGH = env.action_space.high[0]
@@ -175,11 +157,6 @@ def train_model(model_name, train_env_task, config, wandb, delay, retrain=False,
     if wandb is not None:
         wandb.config.update({f"{model_name}__number_of_parameters": model_number_of_parameters}, allow_val_change=True)
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
-    # optimizer = optim.Adam(model.parameters(), lr=1e-4)
-    # optimizer = optim.Adam(model.parameters(), lr=1e-5)
-    # optimizer = optim.Adam(model.parameters(), lr=0.00001)
-    # optimizer = optim.Adam(model.parameters(), lr=1e-6)
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True, patience=10, cooldown=100)
     if config.use_lr_scheduler:
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config.lr_scheduler_step_size, gamma=config.lr_scheduler_gamma, verbose=True)
     loss_l = []
@@ -232,12 +209,6 @@ def train_model(model_name, train_env_task, config, wandb, delay, retrain=False,
                                                                         encode_obs_time=config.encode_obs_time,
                                                                         action_buffer_size=config.action_buffer_size,
                                                                         reuse_state_actions_when_sampling_times=config.reuse_state_actions_when_sampling_times)
-        # Post hoc filter out nan values
-        # nan_mask = s0.isnan().any(dim=1) + sn.isnan().any(dim=1) + ts.isnan().any(dim=1) + a0.view(s0.shape[0], -1).isnan().any(dim=1)
-        # s0 = s0[~nan_mask]
-        # sn = sn[~nan_mask]
-        # ts = ts[~nan_mask]
-        # a0 = a0[~nan_mask]
         if 'latent_ode' in model_name:
             current_a0 = a0[:,-1,:]
             history_s0 = s0.unfold(dimension=0, size=config.action_buffer_size, step=1).permute(0,2,1)
@@ -268,37 +239,20 @@ def train_model(model_name, train_env_task, config, wandb, delay, retrain=False,
             cum_loss += loss.item()
             iters += 1
             if (permutation.shape[0] == batch_size) or (iter_i % (config.iters_per_log - 1) == 0 and not iter_i == 0):
-                # val_loss = get_val_loss_delay_time_multi(model,
-                #                                         train_env_task,
-                #                                         env,
-                #                                         samples_per_dim=2,
-                #                                         delay=delay,
-                #                                         dt=config.dt,
-                #                                         encode_obs_time=config.encode_obs_time,
-                #                                         action_buffer_size=config.action_buffer_size)
                 track_loss = cum_loss / iters
                 elapsed_time = time.perf_counter() - train_start_time
                 if config.sweep_mode and config.end_training_after_seconds is not None and elapsed_time > config.end_training_after_seconds:
-                    # elapsed_time_loss_mean = np.array(elapsed_time_loss_l).mean()
-                    # logger.info(f'Ending training: elapsed_time_loss_mean: {elapsed_time_loss_mean}')
                     logger.info(f'[{train_env_task}\t{model_name}\td={delay}\tsamples={config.training_use_only_samples}]Ending training')
-                    # wandb.log({'elapsed_time_loss_mean': elapsed_time_loss_mean})
                     break
-                # elapsed_time_loss = elapsed_time * val_loss
-                # elapsed_time_loss_l.append(elapsed_time_loss)
-                # logger.info(f'[epoch={epoch_i+1:04d}|iter={iter_i+1:04d}/{int(s0.size()[0]/batch_size):04d}] train_loss={track_loss} \t\t| val_loss={val_loss} \t\t| s/it={(time.perf_counter() - t0)/config.iters_per_log:.5f}')
-                # logger.info(f'[epoch={epoch_i+1:04d}|iter={iter_i+1:04d}/{int(s0.size()[0]/batch_size):04d}|t:{int(elapsed_time)}/{config.end_training_after_seconds if config.sweep_mode else 0}] train_loss={track_loss} \t\t| val_loss={val_loss} \t\t| elapsed_time_loss={elapsed_time_loss} \t\t| s/it={(time.perf_counter() - t0)/config.iters_per_log:.5f}')
                 logger.info(f'[{train_env_task}\t{model_name}\td={delay}\tsamples={config.training_use_only_samples}][epoch={epoch_i+1:04d}|iter={iter_i+1:04d}/{int(permutation.size()[0]/batch_size):04d}|t:{int(elapsed_time)}/{config.end_training_after_seconds if config.sweep_mode else 0}] train_loss={track_loss} \t\t| s/it={(time.perf_counter() - t0)/config.iters_per_log:.5f}')
                 t0 = time.perf_counter()
                 if wandb is not None:
-                    # wandb.log({"loss": track_loss, "epoch": epoch_i, "val_loss": val_loss, "model_name": model_name, "elapsed_time_loss": elapsed_time_loss})
                     wandb.log({"loss": track_loss, "epoch": epoch_i, "model_name": model_name})
                 iters = 0
 
                 # Early stopping procedure
                 if cum_loss < best_loss:
                     best_loss = cum_loss
-                    # best_model = deepcopy(model.state_dict())
                     torch.save(model.state_dict(), model_path)
                     waiting = 0
                 elif waiting > patience:
@@ -314,18 +268,14 @@ def train_model(model_name, train_env_task, config, wandb, delay, retrain=False,
             scheduler.step()
         loss_l.append(loss.item())
 
-    # logger.info(f'[Training Finished] model: {model_name} \t|[epoch={epoch_i+1:04d}|iter={iter_i+1:04d}/{int(s0.size()[0]/batch_size):04d}] train_loss={track_loss:.5f} \t| val_loss={val_loss:.5f} \t| s/it={(time.perf_counter() - t0)/config.iters_per_log:.5f}')
     logger.info(f'[{train_env_task}\t{model_name}\td={delay}\tsamples={config.training_use_only_samples}][Training Finished] model: {model_name} \t|[epoch={epoch_i+1:04d}|iter={iter_i+1:04d}/{int(permutation.size()[0]/batch_size):04d}] train_loss={track_loss:.5f} \t| s/it={(time.perf_counter() - t0)/config.iters_per_log:.5f}')
     if evaluate_model_when_trained:
         total_reward = evaluate_model(model, model_name, train_env_task, wandb, config, delay, intermediate_run=False)
     else:
         total_reward = None
-    # if best_model is not None:
-    #     model.load_state_dict(best_model)
     os.makedirs('saved_models', exist_ok=True)
     torch.save(model.state_dict(), model_path)
-    results = {'train_loss': loss.item(), 'best_val_loss': best_loss, 'total_reward': total_reward} # 'loss_l': np.array(loss_l)}
-    # results = {'val_loss': val_loss, 'train_loss': loss.item(), 'best_val_loss': best_loss, 'total_reward': total_reward} # 'loss_l': np.array(loss_l)}
+    results = {'train_loss': loss.item(), 'best_val_loss': best_loss, 'total_reward': total_reward}
     return model.eval(), results
 
 def evaluate_model(model, model_name, train_env_task, wandb, config, delay, intermediate_run=False):
