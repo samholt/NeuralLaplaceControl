@@ -185,7 +185,7 @@ def mppi_with_model_evaluate_single_step(
     fps = int(1 / dt)
     env.reset()
     # env.set_state_(np.array([0.0,0.0,0.0,0.0]))
-    state = env.get_obs()  # pyright: ignore  # pylint: disable=unused-variable
+    state = env.get_obs()  # pyright: ignore  # pylint: disable=unused-variable  # noqa@ F841
     if "pendulum" in env_name:  # Start pendulum env in downward position
         env.state = np.array([np.pi, 1])  # pyright: ignore
     # if 'cartpole' in env_name: # Start cartpole env in upward position

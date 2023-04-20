@@ -247,7 +247,10 @@ class CTCartpole(BaseEnv):  # pylint: disable=abstract-method
     ):
         assert s.shape[1] == 3
         x, cos_th_len, sin_th_len = s[..., :1], s[..., 1:2], s[..., 2:3]
-        cos_th, sin_th = cos_th_len / self.length, sin_th_len / self.length  # pylint: disable=unused-variable
+        cos_th, sin_th = (  # noqa: F841  # pylint: disable=unused-variable
+            cos_th_len / self.length,
+            sin_th_len / self.length,
+        )
         if self.swing_up:
             ee_pos = torch.cat([x + sin_th_len, cos_th_len], -1)
             if change_goal:

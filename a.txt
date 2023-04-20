@@ -1,0 +1,92 @@
+envs/oderl/utils/dropout_bnn.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/utils/dropout_bnn.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/utils/dropout_bnn.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/envs/base_env.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/envs/base_env.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/envs/base_env.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/envs/__init__.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/envs/__init__.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/envs/__init__.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/ctrl/policy.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/ctrl/policy.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/ctrl/policy.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/utils/bnn.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/utils/bnn.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/utils/bnn.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/ctrl/ctrl.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/ctrl/ctrl.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/ctrl/ctrl.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/__init__.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/__init__.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/__init__.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/ctrl/dataset.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/ctrl/dataset.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/ctrl/dataset.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/envs/ctpendulum.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/envs/ctpendulum.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/envs/ctpendulum.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/runner.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/runner.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/runner.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/ctrl/__init__.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/ctrl/__init__.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/ctrl/__init__.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/envs/ctcartpole.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/envs/ctcartpole.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/envs/ctcartpole.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/utils/utils.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/utils/utils.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/utils/utils.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/utils/__init__.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/utils/__init__.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/utils/__init__.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/ctrl/dynamics.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/ctrl/dynamics.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/ctrl/dynamics.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/env_simulator.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/env_simulator.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/env_simulator.py`
+  If it is supposed to be executable, double-check its shebang.
+mppi_with_model.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x mppi_with_model.py`
+  If on Windows, you may also need to: `git add --chmod=-x mppi_with_model.py`
+  If it is supposed to be executable, double-check its shebang.
+mppi_dataset_collector.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x mppi_dataset_collector.py`
+  If on Windows, you may also need to: `git add --chmod=-x mppi_dataset_collector.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/envs/ctacrobot.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/envs/ctacrobot.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/envs/ctacrobot.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/ctrl/utils.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/ctrl/utils.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/ctrl/utils.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/utils/ibnn.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/utils/ibnn.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/utils/ibnn.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/utils/benn.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/utils/benn.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/utils/benn.py`
+  If it is supposed to be executable, double-check its shebang.
+envs/oderl/utils/enn.py: marked executable but has no (or invalid) shebang!
+  If it isn't supposed to be executable, try: `chmod -x envs/oderl/utils/enn.py`
+  If on Windows, you may also need to: `git add --chmod=-x envs/oderl/utils/enn.py`
+  If it is supposed to be executable, double-check its shebang.

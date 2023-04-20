@@ -255,7 +255,7 @@ def get_ckpt_model(ckpt_path, model, device):
         raise Exception("Checkpoint " + ckpt_path + " does not exist.")  # pylint: disable=broad-exception-raised
     # Load checkpoint.
     checkpt = torch.load(ckpt_path)
-    ckpt_args = checkpt["args"]  # pylint: disable=unused-variable
+    ckpt_args = checkpt["args"]  # pylint: disable=unused-variable  # noqa: F841
     state_dict = checkpt["state_dict"]
     model_dict = model.state_dict()
 
@@ -376,7 +376,7 @@ def shift_outputs(outputs, first_datapoint=None):
 
 
 def split_data_extrap(data_dict, dataset=""):
-    device = get_device(data_dict["data"])  # pylint: disable=unused-variable
+    device = get_device(data_dict["data"])  # pylint: disable=unused-variable  # noqa: F841
 
     n_observed_tp = data_dict["data"].size(1) // 2
     if dataset == "hopper":
@@ -405,7 +405,7 @@ def split_data_extrap(data_dict, dataset=""):
 
 
 def split_data_interp(data_dict):
-    device = get_device(data_dict["data"])  # pylint: disable=unused-variable
+    device = get_device(data_dict["data"])  # pylint: disable=unused-variable  # noqa: F841
 
     split_dict = {
         "observed_data": data_dict["data"].clone(),
