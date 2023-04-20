@@ -1,9 +1,9 @@
-import torch
-import time
 import logging
-from torch.distributions.multivariate_normal import MultivariateNormal
-import functools
+import time
+
 import numpy as np
+import torch
+from torch.distributions.multivariate_normal import MultivariateNormal
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ def is_tensor_like(x):
 #     return wrapper
 
 
-class MPPIDelay():
+class MPPIDelay:
     """
     Model Predictive Path Integral control
     This implementation batch samples the trajectories and so scales well with the number of samples K.
@@ -61,24 +61,33 @@ class MPPIDelay():
     based off of https://github.com/ferreirafabio/mppi_pendulum
     """
 
-    def __init__(self, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu",
-                 terminal_state_cost=None,
-                 lambda_=1.,
-                 noise_mu=None,
-                 u_min=None,
-                 u_max=None,
-                 u_init=None,
-                 U_init=None,
-                 u_scale=1,
-                 u_per_command=1,
-                 step_dependent_dynamics=False,
-                 rollout_samples=1,
-                 rollout_var_cost=0,
-                 rollout_var_discount=0.95,
-                 dt=0.05,
-                 sample_null_action=False,
-                 noise_abs_cost=False,
-                 encode_obs_time=False):
+    def __init__(
+        self,
+        dynamics,
+        running_cost,
+        nx,
+        noise_sigma,
+        num_samples=100,
+        horizon=15,
+        device="cpu",
+        terminal_state_cost=None,
+        lambda_=1.0,
+        noise_mu=None,
+        u_min=None,
+        u_max=None,
+        u_init=None,
+        U_init=None,
+        u_scale=1,
+        u_per_command=1,
+        step_dependent_dynamics=False,
+        rollout_samples=1,
+        rollout_var_cost=0,
+        rollout_var_discount=0.95,
+        dt=0.05,
+        sample_null_action=False,
+        noise_abs_cost=False,
+        encode_obs_time=False,
+    ):
         """
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
         :param running_cost: function(state, action) -> cost (K) taking in batch state and action (same as dynamics)
@@ -92,7 +101,7 @@ class MPPIDelay():
         :param noise_mu: (nu) control noise mean (used to bias control samples); defaults to zero mean
         :param u_min: (nu) minimum values for each dimension of control to pass into dynamics
         :param u_max: (nu) maximum values for each dimension of control to pass into dynamics
-        :param u_init: (nu) what to initialize new end of trajectory control to be; defeaults to zero
+        :param u_init: (nu) what to initialize new end of trajectory control to be; defaults to zero
         :param U_init: (T x nu) initial control sequence; defaults to noise
         :param step_dependent_dynamics: whether the passed in dynamics needs horizon step passed in (as 3rd arg)
         :param rollout_samples: M, number of state trajectories to rollout for each control trajectory
@@ -134,14 +143,14 @@ class MPPIDelay():
         if self.u_max is not None and self.u_min is None:
             if not torch.is_tensor(self.u_max):
                 self.u_max = torch.tensor(self.u_max)
-            self.u_min = -self.u_max
+            self.u_min = -self.u_max  # pylint: disable=invalid-unary-operand-type
         if self.u_min is not None and self.u_max is None:
             if not torch.is_tensor(self.u_min):
                 self.u_min = torch.tensor(self.u_min)
-            self.u_max = -self.u_min
+            self.u_max = -self.u_min  # pylint: disable=invalid-unary-operand-type
         if self.u_min is not None:
             self.u_min = self.u_min.to(device=self.d)
-            self.u_max = self.u_max.to(device=self.d)
+            self.u_max = self.u_max.to(device=self.d)  # pyright: ignore
 
         self.noise_mu = noise_mu.to(self.d)
         self.noise_sigma = noise_sigma.to(self.d)
@@ -152,7 +161,7 @@ class MPPIDelay():
         self.u_init = u_init.to(self.d)
 
         if self.U is None:
-            self.U = self.noise_dist.sample((self.T,))
+            self.U = self.noise_dist.sample((self.T,))  # pyright: ignore
 
         self.step_dependency = step_dependent_dynamics
         self.F = dynamics
@@ -187,7 +196,7 @@ class MPPIDelay():
         :returns action: (nu) best action
         """
         # shift command 1 time step
-        self.U = torch.roll(self.U, -1, dims=0)
+        self.U = torch.roll(self.U, -1, dims=0)  # pyright: ignore
         self.U[-1] = self.u_init
 
         if not torch.is_tensor(state):
@@ -195,28 +204,30 @@ class MPPIDelay():
         self.state = state.to(dtype=self.dtype, device=self.d)
 
         cost_total = self._compute_total_cost_batch(action_buffer)
-        logger.debug(f'cost_total: {cost_total.shape}')
+        # pylint: disable-next=logging-fstring-interpolation
+        logger.debug(f"cost_total: {cost_total.shape}")
 
         beta = torch.min(cost_total)
         self.cost_total_non_zero = _ensure_non_zero(cost_total, beta, 1 / self.lambda_)
 
         eta = torch.sum(self.cost_total_non_zero)
-        self.omega = (1. / eta) * self.cost_total_non_zero
+        self.omega = (1.0 / eta) * self.cost_total_non_zero
         for t in range(self.T):
             self.U[t] += torch.sum(self.omega.view(-1, 1) * self.noise[:, t], dim=0)
-        action = self.U[:self.u_per_command]
+        action = self.U[: self.u_per_command]
         # reduce dimensionality if we only need the first command
         if self.u_per_command == 1:
             action = action[0]
 
-        logger.debug(f'action: {action}')
+        # pylint: disable-next=logging-fstring-interpolation
+        logger.debug(f"action: {action}")
         return action * self.u_scale
 
     def reset(self):
         """
         Clear controller state after finishing a trial
         """
-        self.U = self.noise_dist.sample((self.T,))
+        self.U = self.noise_dist.sample((self.T,))  # pyright: ignore
 
     def _compute_rollout_costs(self, perturbed_actions, action_buffer_in):
         K, T, nu = perturbed_actions.shape
@@ -229,39 +240,56 @@ class MPPIDelay():
         cost_var = torch.zeros_like(cost_total)
 
         # allow propagation of a sample of states (ex. to carry a distribution), or to start with a single state
-        if self.state.shape == (K, self.nx):
+        if self.state.shape == (K, self.nx):  # pyright: ignore
             state = self.state
         else:
-            state = self.state.view(1, -1).repeat(K, 1)
+            state = self.state.view(1, -1).repeat(K, 1)  # pyright: ignore
 
         # rollout action trajectory M times to estimate expected cost
-        logger.debug(f'state: {state.shape}')
+        # pylint: disable-next=logging-fstring-interpolation
+        logger.debug(f"state: {state.shape}")  # pyright: ignore
 
         states = []
         actions = []
-        delay_window = action_buffer.shape[0]-1 # handle encode_obs_time 
+        delay_window = action_buffer.shape[0] - 1  # handle encode_obs_time
         perturbed_actions = self.u_scale * perturbed_actions
         if not self.encode_obs_time:
-            perturbed_actions_with_history = torch.cat((action_buffer[1:].view(1,-1,nu).repeat(K,1,1), perturbed_actions), dim=1)
+            perturbed_actions_with_history = torch.cat(
+                (action_buffer[1:].view(1, -1, nu).repeat(K, 1, 1), perturbed_actions),
+                dim=1,
+            )
         else:
-            time_buffer = action_buffer[:,nu:]
-            perturbed_actions_with_history = torch.cat((action_buffer[1:,:nu].view(1,-1,nu).repeat(K,1,1), perturbed_actions), dim=1)
-        
+            time_buffer = action_buffer[:, nu:]
+            perturbed_actions_with_history = torch.cat(
+                (
+                    action_buffer[1:, :nu].view(1, -1, nu).repeat(K, 1, 1),
+                    perturbed_actions,
+                ),
+                dim=1,
+            )
+
         for t in range(T):
             if not self.encode_obs_time:
-                state = self._dynamics(state, perturbed_actions_with_history[:,t:t+delay_window+1,:], t)
+                state = self._dynamics(
+                    state,
+                    perturbed_actions_with_history[:, t : t + delay_window + 1, :],
+                    t,
+                )
             else:
-                time_buffer += self.dt
-                time_buffer = time_buffer.roll(-1, dims=0)
+                time_buffer += self.dt  # pyright: ignore
+                time_buffer = time_buffer.roll(-1, dims=0)  # pyright: ignore
                 time_buffer[-1] = 0
-                perturbed_actions_in = perturbed_actions_with_history[:,t:t+delay_window+1,:]
-                actions_in = torch.cat((perturbed_actions_in, time_buffer.view(1,-1,1).repeat(K,1,1)), dim=2)
+                perturbed_actions_in = perturbed_actions_with_history[:, t : t + delay_window + 1, :]
+                actions_in = torch.cat(
+                    (perturbed_actions_in, time_buffer.view(1, -1, 1).repeat(K, 1, 1)),
+                    dim=2,
+                )
                 state = self._dynamics(state, actions_in, t)
-            u = perturbed_actions_with_history[:,t+delay_window,:]
+            u = perturbed_actions_with_history[:, t + delay_window, :]
             c = self._running_cost(state, u)
             cost_samples += c
             if self.M > 1:
-                cost_var += c.var(dim=0) * (self.rollout_var_discount ** t)
+                cost_var += c.var(dim=0) * (self.rollout_var_discount**t)
 
             # Save total states/actions
             states.append(state)
@@ -271,7 +299,8 @@ class MPPIDelay():
         # States is K x T x nx
         actions = torch.stack(actions, dim=-2)
         states = torch.stack(states, dim=-2)
-        logger.debug(f'states: {states.shape}')
+        # pylint: disable-next=logging-fstring-interpolation
+        logger.debug(f"states: {states.shape}")
 
         # action perturbation cost
         if self.terminal_state_cost:
@@ -279,13 +308,15 @@ class MPPIDelay():
             cost_samples += c
         cost_total += cost_samples.mean(dim=0)
         cost_total += cost_var * self.rollout_var_cost
-        logger.debug(f'{cost_total.shape} | {states.shape} | {actions.shape}')
+        # pylint: disable-next=logging-fstring-interpolation
+        logger.debug(f"{cost_total.shape} | {states.shape} | {actions.shape}")
         return cost_total, states, actions
 
     def _compute_total_cost_batch(self, action_buffer):
         # parallelize sampling across trajectories
         # resample noise each time we take an action
-        self.noise = self.noise_dist.sample((self.K, self.T)) # K x T x nu
+        # K x T x nu:
+        self.noise = self.noise_dist.sample((self.K, self.T))  # pyright: ignore
         # broadcast own control to noise over samples; now it's K x T x nu
         self.perturbed_action = self.U + self.noise
         if self.sample_null_action:
@@ -301,8 +332,9 @@ class MPPIDelay():
             # the actions with low noise if all states have the same cost. With abs(noise) we prefer actions close to the
             # nomial trajectory.
         else:
-            action_cost = self.lambda_ * self.noise @ self.noise_sigma_inv # Like original paper
-        logger.debug(f'action_cost: {action_cost.shape}')
+            action_cost = self.lambda_ * self.noise @ self.noise_sigma_inv  # Like original paper
+        # pylint: disable-next=logging-fstring-interpolation
+        logger.debug(f"action_cost: {action_cost.shape}")
 
         self.cost_total, self.states, self.actions = self._compute_rollout_costs(self.perturbed_action, action_buffer)
         self.actions /= self.u_scale
@@ -325,36 +357,46 @@ class MPPIDelay():
 
     def get_rollouts(self, state, num_rollouts=1):
         """
-            :param state: either (nx) vector or (num_rollouts x nx) for sampled initial states
-            :param num_rollouts: Number of rollouts with same action sequence - for generating samples with stochastic
-                                 dynamics
-            :returns states: num_rollouts x T x nx vector of trajectories
+        :param state: either (nx) vector or (num_rollouts x nx) for sampled initial states
+        :param num_rollouts: Number of rollouts with same action sequence - for generating samples with stochastic
+                             dynamics
+        :returns states: num_rollouts x T x nx vector of trajectories
 
         """
         state = state.view(-1, self.nx)
         if state.size(0) == 1:
             state = state.repeat(num_rollouts, 1)
 
-        T = self.U.shape[0]
-        states = torch.zeros((num_rollouts, T + 1, self.nx), dtype=self.U.dtype, device=self.U.device)
+        T = self.U.shape[0]  # pyright: ignore
+        states = torch.zeros(
+            (num_rollouts, T + 1, self.nx), dtype=self.U.dtype, device=self.U.device  # pyright: ignore
+        )
         states[:, 0] = state
         for t in range(T):
-            states[:, t + 1] = self._dynamics(states[:, t].view(num_rollouts, -1),
-                                              self.u_scale * self.U[t].view(num_rollouts, -1), t)
+            states[:, t + 1] = self._dynamics(
+                states[:, t].view(num_rollouts, -1),
+                self.u_scale * self.U[t].view(num_rollouts, -1),  # pyright: ignore
+                t,
+            )
         return states[:, 1:]
 
 
-def run_mppi(mppi, env, retrain_dynamics, retrain_after_iter=50, iter=1000, render=True):
+def run_mppi(mppi, env, retrain_dynamics, retrain_after_iter=50, iter_=1000, render=True):
     dataset = torch.zeros((retrain_after_iter, mppi.nx + mppi.nu), dtype=mppi.U.dtype, device=mppi.d)
     total_reward = 0
-    for i in tqdm(range(iter)):
+    for i in tqdm(range(iter_)):
         state = env.state
         command_start = time.perf_counter()
         action = mppi.command(state)
         elapsed = time.perf_counter() - command_start
-        s, r, _, _ = env.step(action.cpu().numpy())
+        s, r, _, _ = env.step(action.cpu().numpy())  # pylint: disable=unused-variable
         total_reward += r
-        logger.debug("action taken: %.4f cost received: %.4f time taken: %.5fs", action, -r, elapsed)
+        logger.debug(
+            "action taken: %.4f cost received: %.4f time taken: %.5fs",
+            action,
+            -r,
+            elapsed,
+        )
         if render:
             env.render()
 
@@ -363,6 +405,6 @@ def run_mppi(mppi, env, retrain_dynamics, retrain_after_iter=50, iter=1000, rend
             retrain_dynamics(dataset)
             # don't have to clear dataset since it'll be overridden, but useful for debugging
             dataset.zero_()
-        dataset[di, :mppi.nx] = torch.tensor(state, dtype=mppi.U.dtype)
-        dataset[di, mppi.nx:] = action
+        dataset[di, : mppi.nx] = torch.tensor(state, dtype=mppi.U.dtype)
+        dataset[di, mppi.nx :] = action
     return total_reward, dataset

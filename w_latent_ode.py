@@ -1,10 +1,14 @@
+import logging
+import os
+from copy import deepcopy
+from time import time
+
+import matplotlib
+import matplotlib.pyplot
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-import matplotlib.pyplot as plt
-import os
+from torch import nn
 from torchlaplace import laplace_reconstruct
 import time
 import logging
@@ -90,9 +94,7 @@ class GeneralLatentODEOfficial(nn.Module):
         self.register_buffer("dt", torch.tensor(dt))
 
         obsrv_std = torch.Tensor([obsrv_std]).to(device)
-        z0_prior = Normal(
-            torch.Tensor([0.0]).to(device), torch.Tensor([1.0]).to(device)
-        )
+        z0_prior = Normal(torch.Tensor([0.0]).to(device), torch.Tensor([1.0]).to(device))
         self.model = create_LatentODE_model_direct(
             input_dim,
             z0_prior,
@@ -105,7 +107,7 @@ class GeneralLatentODEOfficial(nn.Module):
             gru_units=hidden_units,
         ).to(device)
         self.latents = latents
-        self.batch_obs_buffer = torch.zeros(1,4,state_dim).to(device)
+        self.batch_obs_buffer = torch.zeros(1, 4, state_dim).to(device)
 
     def _get_loss(self, dl):
         loss = compute_loss_all_batches_direct(self.model, dl, device=device, classif=0)
@@ -118,15 +120,21 @@ class GeneralLatentODEOfficial(nn.Module):
         else:
             batch_obs = in_batch_obs
             batch_action = in_batch_action / 3.0
-        p_action = self.action_encoder(batch_action)
-        sa_in = torch.cat((batch_obs, p_action), axis=1)
+        p_action = self.action_encoder(batch_action)  # pyright: ignore
+        sa_in = torch.cat((batch_obs, p_action), axis=1)  # pyright: ignore
         if len(sa_in.shape) == 2:
             sa_in = sa_in.unsqueeze(1)
 
         p = sa_in.squeeze()
-        return torch.squeeze(laplace_reconstruct(
-            self.laplace_rep_func, p, ts_pred, recon_dim=self.output_dim, ilt_algorithm=self.ilt_algorithm,
-        ))
+        return torch.squeeze(
+            laplace_reconstruct(
+                self.laplace_rep_func,
+                p,
+                ts_pred,
+                recon_dim=self.output_dim,
+                ilt_algorithm=self.ilt_algorithm,  # pyright: ignore
+            )
+        )
 
     def train_step(self, in_batch_obs, in_batch_action, ts_pred, observed_tp, pred_batch_obs_diff):
         if self.normalize:
@@ -138,7 +146,7 @@ class GeneralLatentODEOfficial(nn.Module):
         # if self.normalize_time:
         #     ts_pred = (ts_pred / (self.dt*8.0))
         batch_size = batch_obs.shape[0]
-    
+
         if len(batch_action.shape) == 2:
             batch_action = batch_action.unsqueeze(1)
 
@@ -153,7 +161,7 @@ class GeneralLatentODEOfficial(nn.Module):
             "observed_mask": torch.ones_like(observed_data),
             "mask_predicted_data": torch.ones_like(data_to_predict),
             "labels": None,
-            "mode": "extrap"
+            "mode": "extrap",
         }
         loss = self.model.compute_all_losses(batch)
         return loss["loss"]
@@ -188,20 +196,23 @@ class GeneralLatentODEOfficial(nn.Module):
 
             if batch_obs.shape[0] == 1:
                 self.batch_obs_buffer[0,] = torch.roll(self.batch_obs_buffer[0,], -1, dims=0)
-                self.batch_obs_buffer[:,-1,:] =batch_obs
-                observed_data = torch.cat((self.batch_obs_buffer, batch_action),dim=2)
+                self.batch_obs_buffer[:, -1, :] = batch_obs
+                observed_data = torch.cat((self.batch_obs_buffer, batch_action), dim=2)
             else:
                 if self.batch_obs_buffer.shape[0] != batch_obs.shape[0]:
-                    self.batch_obs_buffer = torch.zeros(batch_obs.shape[0],4,batch_obs.shape[1]).to(device)
+                    self.batch_obs_buffer = torch.zeros(batch_obs.shape[0], 4, batch_obs.shape[1]).to(device)
                 self.batch_obs_buffer = torch.roll(self.batch_obs_buffer, -1, dims=1)
-                self.batch_obs_buffer[:,-1,:] = batch_obs
-                observed_data = torch.cat((self.batch_obs_buffer, batch_action),dim=2)
-                # observed_data = torch.cat((batch_obs.view(batch_size, 1, -1).repeat(1, batch_action.shape[1], 1), batch_action),dim=2)
-        observed_ts = (torch.arange(-(in_batch_action.shape[1]-1), 1, 1, device=device, dtype=torch.double) * self.dt).view(1,-1)
+                self.batch_obs_buffer[:, -1, :] = batch_obs
+                observed_data = torch.cat((self.batch_obs_buffer, batch_action), dim=2)
+                # observed_data = torch.cat((batch_obs.view(batch_size, 1, -1)\
+                # .repeat(1, batch_action.shape[1], 1), batch_action),dim=2)
+        observed_ts = (
+            torch.arange(-(in_batch_action.shape[1] - 1), 1, 1, device=device, dtype=torch.double) * self.dt
+        ).view(1, -1)
 
         if ts_pred.shape[0] > 1:
             if ts_pred.unique().size()[0] == 1:
-                ts_pred = ts_pred[0].view(1,1)
+                ts_pred = ts_pred[0].view(1, 1)
             else:
                 raise ValueError("ts_pred must be unique")
 
@@ -213,10 +224,10 @@ class GeneralLatentODEOfficial(nn.Module):
             "observed_mask": torch.ones_like(observed_data),
             "mask_predicted_data": None,
             "labels": None,
-            "mode": "extrap"
+            "mode": "extrap",
         }
         predict = self.predict_(batch)
-        return predict[:,:,:-in_batch_action.shape[2]].squeeze()
+        return predict[:, :, : -in_batch_action.shape[2]].squeeze()
 
     def predict_(self, batch):
         pred_y, _ = self.model.get_reconstruction(
@@ -236,18 +247,14 @@ class GeneralLatentODEOfficial(nn.Module):
             truth_w_mask = batch["observed_data"]
             if mask is not None:
                 truth_w_mask = torch.cat((batch["observed_data"], mask), -1)
-            mean, std = self.model.encoder_z0(
-                truth_w_mask, torch.flatten(batch["observed_tp"]), run_backwards=True
-            )
+            # pylint: disable-next=unused-variable
+            mean, std = self.model.encoder_z0(truth_w_mask, torch.flatten(batch["observed_tp"]), run_backwards=True)
             encodings.append(mean.view(-1, self.latents))
         return torch.cat(encodings, 0)
 
     def _get_and_reset_nfes(self):
         """Returns and resets the number of function evaluations for model."""
-        iteration_nfes = (
-            self.model.encoder_z0.z0_diffeq_solver.ode_func.nfe
-            + self.model.diffeq_solver.ode_func.nfe
-        )
+        iteration_nfes = self.model.encoder_z0.z0_diffeq_solver.ode_func.nfe + self.model.diffeq_solver.ode_func.nfe
         self.model.encoder_z0.z0_diffeq_solver.ode_func.nfe = 0
         self.model.diffeq_solver.ode_func.nfe = 0
         return iteration_nfes
