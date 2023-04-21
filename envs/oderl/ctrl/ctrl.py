@@ -4,8 +4,8 @@ import pickle
 import torch
 import torch.nn as nn
 
-import envs.oderl.ctrl.dataset as ds  # pylint: disable=import-error
-from envs.oderl.utils import BNN  # pylint: disable=import-error
+import envs.oderl.ctrl.dataset as ds
+from envs.oderl.utils import BNN
 
 from .dynamics import NODE, PETS, DeepPILCO
 from .policy import Policy

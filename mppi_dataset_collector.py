@@ -9,10 +9,9 @@ import torch.multiprocessing as multiprocessing
 import wandb
 from tqdm import tqdm
 
-from planners.mppi_delay import MPPIDelay  # pylint: disable=import-error
-
-from .config import dotdict, get_config, seed_all
-from .overlay import create_env, setup_logger, start_virtual_display
+from config import dotdict, get_config, seed_all
+from overlay import create_env, setup_logger, start_virtual_display
+from planners.mppi_delay import MPPIDelay
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 'cpu'
 logger = logging.getLogger()
@@ -121,15 +120,15 @@ def inner_mppi_with_model_collect_data(
     elif model_name == "oracle":
         # Need to partial ts as dt !
         if env_name == "oderl-pendulum":
-            from .oracle import pendulum_dynamics_dt_delay
+            from oracle import pendulum_dynamics_dt_delay
 
             dynamics = pendulum_dynamics_dt_delay  # pyright: ignore
         elif env_name == "oderl-cartpole":
-            from .oracle import cartpole_dynamics_dt_delay
+            from oracle import cartpole_dynamics_dt_delay
 
             dynamics = cartpole_dynamics_dt_delay  # pyright: ignore
         elif env_name == "oderl-acrobot":
-            from .oracle import acrobot_dynamics_dt_delay
+            from oracle import acrobot_dynamics_dt_delay
 
             dynamics = acrobot_dynamics_dt_delay  # pyright: ignore
         dynamics = partial(dynamics, ts=ts_pred, delay=action_delay)  # pyright: ignore

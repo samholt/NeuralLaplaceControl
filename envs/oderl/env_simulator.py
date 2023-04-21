@@ -5,8 +5,8 @@ import pyvirtualdisplay
 import torch
 from tqdm import tqdm
 
-import ctrl.ctrl as base  # pylint: disable=import-error
-import envs  # pylint: disable=import-error
+import ctrl.ctrl as base
+import envs
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 'cpu'

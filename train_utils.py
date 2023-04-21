@@ -9,16 +9,16 @@ import wandb
 from torch.multiprocessing import get_logger
 from torchdiffeq import odeint
 
-from .config import get_config, seed_all
-from .mppi_with_model import mppi_with_model_evaluate_single_step
-from .overlay import (
+from config import get_config, seed_all
+from mppi_with_model import mppi_with_model_evaluate_single_step
+from overlay import (
     create_env,
     generate_irregular_data_delay_time_multi,
     load_expert_irregular_data_delay_time_multi,
     setup_logger,
 )
-from .w_latent_ode import GeneralLatentODEOfficial
-from .w_nl import NeuralLaplaceModel
+from w_latent_ode import GeneralLatentODEOfficial
+from w_nl import NeuralLaplaceModel
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 

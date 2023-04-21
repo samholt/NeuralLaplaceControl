@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from envs.oderl.utils import BNN  # pylint: disable=import-error
+from envs.oderl.utils import BNN
 
 tanh_ = torch.nn.Tanh()
 

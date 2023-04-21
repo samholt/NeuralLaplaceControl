@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torchlaplace import laplace_reconstruct
 
-from .config import CME_reconstruction_terms
+from config import CME_reconstruction_terms
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logger = logging.getLogger()

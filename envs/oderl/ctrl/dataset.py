@@ -3,7 +3,7 @@ import copy
 import numpy as np
 import torch
 
-from envs.oderl.utils.utils import KernelInterpolation  # pylint: disable=import-error
+from envs.oderl.utils.utils import KernelInterpolation
 
 
 class Dataset:

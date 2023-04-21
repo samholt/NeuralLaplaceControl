@@ -6,9 +6,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from envs.oderl import envs  # pylint: disable=import-error
-
-from .mppi_dataset_collector import mppi_with_model_collect_data
+from envs.oderl import envs
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 'cpu'
 torch.set_default_dtype(torch.float32)
@@ -122,11 +120,11 @@ def compute_val_data_delay(train_env_task, env, delay, dt=0.05, samples_per_dim=
     s0, a0, sn = s0.to(device), a0.to(device), sn.to(device)
     ts = torch.tensor([0.05]).to(device).view(1, 1).repeat(s0.shape[0], 1)
     if train_env_task == "oderl-cartpole":
-        from .oracle import cartpole_dynamics_dt_delay
+        from oracle import cartpole_dynamics_dt_delay
 
         sn = cartpole_dynamics_dt_delay(s0, a0, ts, delay=delay)
     elif train_env_task == "oderl-pendulum":
-        from .oracle import pendulum_dynamics_dt_delay
+        from oracle import pendulum_dynamics_dt_delay
 
         sn = pendulum_dynamics_dt_delay(s0, a0, ts, delay=delay)
     s0 = s0.double()
@@ -157,14 +155,14 @@ def get_val_loss_delay_time_multi(
     s0, a0, sn = s0.to(device), a0.to(device), sn.to(device)
     ts = torch.tensor([0.05]).to(device).view(1, 1).repeat(s0.shape[0], 1)
     if train_env_task == "oderl-cartpole":
-        from .oracle import cartpole_dynamics_dt_delay
+        from oracle import cartpole_dynamics_dt_delay
 
         if encode_obs_time:
             sn = cartpole_dynamics_dt_delay(s0, a0[:, :, :1], ts, delay=delay)
         else:
             sn = cartpole_dynamics_dt_delay(s0, a0, ts, delay=delay)
     elif train_env_task == "oderl-pendulum":
-        from .oracle import pendulum_dynamics_dt_delay
+        from oracle import pendulum_dynamics_dt_delay
 
         if encode_obs_time:
             sn = pendulum_dynamics_dt_delay(s0, a0[:, :, :1], ts, delay=delay)
@@ -184,11 +182,11 @@ def get_val_loss_delay(model, train_env_task, env, delay, dt=0.05, samples_per_d
     s0, a0, sn = s0.to(device), a0.to(device), sn.to(device)
     ts = torch.tensor([0.05]).to(device).view(1, 1).repeat(s0.shape[0], 1)
     if train_env_task == "oderl-cartpole":
-        from .oracle import cartpole_dynamics_dt_delay
+        from oracle import cartpole_dynamics_dt_delay
 
         sn = cartpole_dynamics_dt_delay(s0, a0, ts, delay=delay)
     elif train_env_task == "oderl-pendulum":
-        from .oracle import pendulum_dynamics_dt_delay
+        from oracle import pendulum_dynamics_dt_delay
 
         sn = pendulum_dynamics_dt_delay(s0, a0, ts, delay=delay)
     s0 = s0.double()
@@ -205,10 +203,10 @@ def get_val_loss(model, train_env_task, env):
     s0, a0, sn, ts = s0.to(device), a0.to(device), sn.to(device), ts.to(device)
     if train_env_task == "oderl-cartpole":
         raise NotImplementedError
-        # from .oracle import cartpole_dynamics
+        # from oracle import cartpole_dynamics
         # sn = cartpole_dynamics(s0, a0)
     elif train_env_task == "oderl-pendulum":
-        from .oracle import pendulum_dynamics_dt
+        from oracle import pendulum_dynamics_dt
 
         sn = pendulum_dynamics_dt(s0, a0)  # pyright: ignore  # pylint: disable=no-value-for-parameter
     ts = torch.tensor([0.05]).to(device).view(1, 1).repeat(s0.shape[0], 1)
@@ -384,7 +382,7 @@ def generate_irregular_data_delay_latent(
         a0 = torch.cat((a0.view(a0.shape[0], -1, nu), a), dim=1)
 
     if latent:
-        from .oracle import cartpole_dynamics_dt_latent
+        from oracle import cartpole_dynamics_dt_latent
 
         sn = cartpole_dynamics_dt_latent(sb, s0, a0, ts)
         s0 = s0[:, [0, 2, 3]]  # Remove x_dot, theta_dot
@@ -745,6 +743,8 @@ def load_expert_irregular_data_delay_time_multi(
     encode_obs_time=True,
     config=None,
 ):
+    from mppi_dataset_collector import mppi_with_model_collect_data
+
     if config is None:
         config = dict()
     final_data = mppi_with_model_collect_data(

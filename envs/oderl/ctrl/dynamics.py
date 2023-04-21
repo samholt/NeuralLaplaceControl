@@ -4,14 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from envs.oderl.utils import (  # pylint: disable=import-error
-    BENN,
-    ENN,
-    EPNN,
-    IBNN,
-    DropoutBNN,
-)
-from envs.oderl.utils.utils import odesolve  # pylint: disable=import-error
+from envs.oderl.utils import BENN, ENN, EPNN, IBNN, DropoutBNN
+from envs.oderl.utils.utils import odesolve
 
 
 class Dynamics(nn.Module, metaclass=ABCMeta):

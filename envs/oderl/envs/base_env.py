@@ -7,7 +7,7 @@ from gym import spaces
 from gym.utils import seeding
 from torchdiffeq import odeint
 
-from envs.oderl.utils.utils import numpy_to_torch  # pylint: disable=import-error
+from envs.oderl.utils.utils import numpy_to_torch
 
 
 class BaseEnv(gym.Env, metaclass=ABCMeta):

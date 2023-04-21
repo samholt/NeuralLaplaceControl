@@ -3,17 +3,14 @@ import logging
 import matplotlib
 import matplotlib.pyplot
 import torch
-from baseline_models.latent_ode_lib.create_latent_ode_model import (  # pylint: disable=import-error
-    create_LatentODE_model_direct,
-)
-from baseline_models.latent_ode_lib.plotting import (  # pylint: disable=import-error
-    Normal,
-)
-from baseline_models.latent_ode_lib.utils import (  # pylint: disable=import-error
-    compute_loss_all_batches_direct,
-)
 from torch import nn
 from torchlaplace import laplace_reconstruct
+
+from baseline_models.latent_ode_lib.create_latent_ode_model import (
+    create_LatentODE_model_direct,
+)
+from baseline_models.latent_ode_lib.plotting import Normal
+from baseline_models.latent_ode_lib.utils import compute_loss_all_batches_direct
 
 matplotlib.use("Agg")
 

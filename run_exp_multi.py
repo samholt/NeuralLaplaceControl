@@ -10,9 +10,9 @@ import wandb
 from torch import multiprocessing
 from tqdm import tqdm
 
-from .config import dotdict, get_config, seed_all
-from .mppi_with_model import mppi_with_model_evaluate_single_step
-from .train_utils import train_model
+from config import dotdict, get_config, seed_all
+from mppi_with_model import mppi_with_model_evaluate_single_step
+from train_utils import train_model
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
