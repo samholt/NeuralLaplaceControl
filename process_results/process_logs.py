@@ -107,7 +107,7 @@ name_map = {
     # pylint: disable=anomalous-backslash-in-string
     "delta_t_rnn+mpc": "$\Delta t-$RNN",  # pyright: ignore  # noqa: W605
     "latent_ode+mpc": "Latent-ODE",
-    "nl+mpc": "NLC \textbf{(Ours)}",
+    "nl+mpc": "NLC \\textbf{(Ours)}",
     "node+mpc": "NODE",
     "oracle+mpc": "Oracle",
     "random+mpc": "Random",
@@ -158,8 +158,11 @@ if __name__ == "__main__":
     dfm[["total_reward", "delay", "seed"]] = dfm[["total_reward", "delay", "seed"]].apply(
         pd.to_numeric, errors="coerce"
     )
-    # dfm[['val_loss', 'train_loss', 'best_val_loss', 'total_reward', 'delay', 'seed']] = dfm[['val_loss', 'train_loss', 'best_val_loss', 'total_reward', 'delay', 'seed']].apply(pd.to_numeric, errors='coerce')
+    # dfm[['val_loss', 'train_loss', 'best_val_loss', 'total_reward', 'delay', 'seed']] =
+    # dfm[['val_loss', 'train_loss', 'best_val_loss', 'total_reward', 'delay', 'seed']]
+    # .apply(pd.to_numeric, errors='coerce')
     dfm["name"] = dfm["model_name"] + "+" + dfm["planner"]
+    dfm.drop(columns=["model_name", "planner"], inplace=True)
     t = dfm.groupby(["delay", "env_name", "name", "seed"]).agg("mean")["total_reward"]
 
     delay_results = {}
