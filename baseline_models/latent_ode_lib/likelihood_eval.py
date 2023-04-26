@@ -1,23 +1,13 @@
-###########################
-# Latent ODEs for Irregularly-Sampled Time Series
-# Author: Yulia Rubanova
-###########################
+"""
+Latent ODEs for Irregularly-Sampled Time Series
+Author: Yulia Rubanova
+"""
 
-import gc
-
-import numpy as np
-import sklearn as sk
-
-# import gc
 import torch
 import torch.nn as nn
-from torch.distributions import Independent, kl_divergence
-from torch.distributions.multivariate_normal import MultivariateNormal
+from torch.distributions import Independent
 from torch.distributions.normal import Normal
-from torch.nn.functional import relu
 
-from .encoder_decoder import *
-from .likelihood_eval import *
 from .utils import get_device
 
 
@@ -25,9 +15,7 @@ def gaussian_log_likelihood(mu_2d, data_2d, obsrv_std, indices=None):
     n_data_points = mu_2d.size()[-1]
 
     if n_data_points > 0:
-        gaussian = Independent(
-            Normal(loc=mu_2d, scale=obsrv_std.repeat(n_data_points)), 1
-        )
+        gaussian = Independent(Normal(loc=mu_2d, scale=obsrv_std.repeat(n_data_points)), 1)
         log_prob = gaussian.log_prob(data_2d)
         log_prob = log_prob / n_data_points
     else:
@@ -67,9 +55,7 @@ def compute_binary_CE_loss(label_predictions, mortality_label):
     mortality_label = mortality_label[idx_not_nan]
 
     if torch.sum(mortality_label == 0.0) == 0 or torch.sum(mortality_label == 1.0) == 0:
-        print(
-            "Warning: all examples in a batch belong to the same class -- please increase the batch size."
-        )
+        print("Warning: all examples in a batch belong to the same class -- please increase the batch size.")
 
     assert not torch.isnan(label_predictions).any()
     assert not torch.isnan(mortality_label).any()
@@ -97,9 +83,7 @@ def compute_multiclass_CE_loss(label_predictions, true_label, mask):
     # For each trajectory, we get n_traj_samples samples from z0 -- compute loss on all of them
     true_label = true_label.repeat(n_traj_samples, 1, 1)
 
-    label_predictions = label_predictions.reshape(
-        n_traj_samples * n_traj * n_tp, n_dims
-    )
+    label_predictions = label_predictions.reshape(n_traj_samples * n_traj * n_tp, n_dims)
     true_label = true_label.reshape(n_traj_samples * n_traj * n_tp, n_dims)
 
     # choose time points with at least one measurement
@@ -141,16 +125,14 @@ def compute_multiclass_CE_loss(label_predictions, true_label, mask):
 
 
 def compute_masked_likelihood(mu, data, mask, likelihood_func):
-    # Compute the likelihood per patient and per attribute so that we don't priorize patients with more measurements
-    n_traj_samples, n_traj, n_timepoints, n_dims = data.size()
+    # Compute the likelihood per patient and per attribute so that we don't prioritize patients with more measurements
+    n_traj_samples, n_traj, n_timepoints, n_dims = data.size()  # pylint: disable=unused-variable
 
     res = []
     for i in range(n_traj_samples):
         for k in range(n_traj):
             for j in range(n_dims):
-                data_masked = torch.masked_select(
-                    data[i, k, :, j], mask[i, k, :, j].bool()
-                )
+                data_masked = torch.masked_select(data[i, k, :, j], mask[i, k, :, j].bool())
 
                 # assert(torch.sum(data_masked == 0.) < 10)
 
@@ -193,11 +175,9 @@ def masked_gaussian_log_density(mu, data, obsrv_std, mask=None):
         res = gaussian_log_likelihood(mu_flat, data_flat, obsrv_std)
         res = res.reshape(n_traj_samples, n_traj).transpose(0, 1)
     else:
-        # Compute the likelihood per patient so that we don't priorize patients with more measurements
+        # Compute the likelihood per patient so that we don't prioritize patients with more measurements
         def func(mu, data, indices):
-            return gaussian_log_likelihood(
-                mu, data, obsrv_std=obsrv_std, indices=indices
-            )
+            return gaussian_log_likelihood(mu, data, obsrv_std=obsrv_std, indices=indices)
 
         res = compute_masked_likelihood(mu, data, mask, func)
     return res
@@ -207,7 +187,7 @@ def mse(mu, data, indices=None):
     n_data_points = mu.size()[-1]
 
     if n_data_points > 0:
-        mse = nn.MSELoss()(mu, data)
+        mse = nn.MSELoss()(mu, data)  # pylint: disable=redefined-outer-name
     else:
         mse = torch.zeros([1]).to(get_device(data)).squeeze()
     return mse
@@ -236,7 +216,7 @@ def compute_mse(mu, data, mask=None):
         data_flat = data.reshape(n_traj_samples * n_traj, n_timepoints * n_dims)
         res = mse(mu_flat, data_flat)
     else:
-        # Compute the likelihood per patient so that we don't priorize patients with more measurements
+        # Compute the likelihood per patient so that we don't prioritize patients with more measurements
         res = compute_masked_likelihood(mu, data, mask, mse)
     return res
 
@@ -260,9 +240,7 @@ def compute_poisson_proc_likelihood(truth, pred_y, info, mask=None):
         def f(log_lam, data, indices):
             return poisson_log_likelihood(log_lam, data, indices, int_lambda)
 
-        poisson_log_l = compute_masked_likelihood(
-            info["log_lambda_y"], truth_repeated, mask_repeated, f
-        )
+        poisson_log_l = compute_masked_likelihood(info["log_lambda_y"], truth_repeated, mask_repeated, f)
         poisson_log_l = poisson_log_l.permute(1, 0)
         # Take mean over n_traj
         # poisson_log_l = torch.mean(poisson_log_l, 1)

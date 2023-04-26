@@ -1,13 +1,16 @@
-from __future__ import division
-from __future__ import print_function
-from __future__ import absolute_import
+from __future__ import absolute_import, division, print_function
 
-import copy, torch, numpy as np
-from numpy import pi, cos, sin
+import copy
+
+import numpy as np
+import torch
+from numpy import cos, pi, sin
+
 from .base_env import BaseEnv
 
+
 def angle_normalize(x):
-    return (((x+np.pi) % (2*np.pi)) - np.pi) # [-3, -1, 0, 1, 2, 3] --> [-1, -1, 0, -1, 0]
+    return ((x + np.pi) % (2 * np.pi)) - np.pi  # [-3, -1, 0, 1, 2, 3] --> [-1, -1, 0, -1, 0]
 
 
 class CTAcrobot(BaseEnv):
@@ -49,65 +52,96 @@ class CTAcrobot(BaseEnv):
         than the original version which employs Euler integration,
         see the AcrobotLegacy class.
     """
-    metadata = {
-        'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second' : 15
-    }
 
-    LINK_LENGTH_1 = 1.  # [m]
-    LINK_LENGTH_2 = 1.  # [m]
-    LINK_MASS_1 = 1.  #: [kg] mass of link 1
-    LINK_MASS_2 = 1.  #: [kg] mass of link 2
+    metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 15}  # pyright: ignore
+
+    LINK_LENGTH_1 = 1.0  # [m]
+    LINK_LENGTH_2 = 1.0  # [m]
+    LINK_MASS_1 = 1.0  #: [kg] mass of link 1
+    LINK_MASS_2 = 1.0  #: [kg] mass of link 2
     LINK_COM_POS_1 = 0.5  #: [m] position of the center of mass of link 1
     LINK_COM_POS_2 = 0.5  #: [m] position of the center of mass of link 2
-    LINK_MOI = 1.  #: moments of inertia for both links
+    LINK_MOI = 1.0  #: moments of inertia for both links
 
-    def __init__(self, dt=0.1, device='cpu', obs_trans=True, obs_noise=0.0, ts_grid='fixed',\
-                 solver='dopri8', fully_act=True, friction=False):
+    def __init__(
+        self,
+        dt=0.1,
+        device="cpu",
+        obs_trans=True,
+        obs_noise=0.0,
+        ts_grid="fixed",
+        solver="dopri8",
+        fully_act=True,
+        friction=False,
+    ):
         self.fully_act = fully_act
         self.N0 = 7
         self.Nexpseq = 3
-        name = 'acrobot'
+        name = "acrobot"
         if obs_trans:
-            state_action_names = ['cos_theta1','sin_theta1','cos_theta2','sin_theta2','velocity1','velocity2']
-            name += '-trig'
+            state_action_names = [
+                "cos_theta1",
+                "sin_theta1",
+                "cos_theta2",
+                "sin_theta2",
+                "velocity1",
+                "velocity2",
+            ]
+            name += "-trig"
         else:
-            state_action_names = ['theta1','theta2','velocity1','velocity2']
+            state_action_names = ["theta1", "theta2", "velocity1", "velocity2"]
         if fully_act:
-            state_action_names += ['action1', 'action2']
+            state_action_names += ["action1", "action2"]
             # print('Running fully actuated Acrobot')
         else:
-            state_action_names += ['action']
-        super().__init__(dt, 4+2*obs_trans, 1+fully_act, 5.0, obs_trans, name, \
-            state_action_names, device, solver, obs_noise, ts_grid, 1e-4, 1e-1)
+            state_action_names += ["action"]
+        super().__init__(
+            dt,
+            4 + 2 * obs_trans,
+            1 + fully_act,
+            5.0,
+            obs_trans,
+            name,
+            state_action_names,
+            device,
+            solver,
+            obs_noise,
+            ts_grid,
+            1e-4,
+            1e-1,
+        )
         self.reset()
 
     #################### environment specific ##################
-    def extract_velocity(self,state):
-        return state[...,-2:]
+    def extract_velocity(self, state):
+        return state[..., -2:]
 
-    def extract_position(self,state):
-        return state[...,:-2]
+    def extract_position(self, state):
+        return state[..., :-2]
 
-    def merge_velocity_acceleration(self,ds,dv):
-        return torch.cat(ds,dv,-1)
+    def merge_velocity_acceleration(self, ds, dv):
+        return torch.cat(ds, dv, -1)  # pyright: ignore
 
-    def torch_transform_states(self,state):
-        ''' Input - [N,n] or [L,N,n]
-        '''
+    def torch_transform_states(self, state):
+        """Input - [N,n] or [L,N,n]"""
         if self.obs_trans:
             state_ = state.detach().clone()
-            theta1, theta2, vel1, vel2 = state_[...,0:1],state_[...,1:2],state_[...,2:3],state_[...,3:4]
-            return torch.cat([theta1.cos(), theta1.sin(), theta2.cos(), theta2.sin(), vel1, vel2],-1)
+            theta1, theta2, vel1, vel2 = (
+                state_[..., 0:1],
+                state_[..., 1:2],
+                state_[..., 2:3],
+                state_[..., 3:4],
+            )
+            return torch.cat([theta1.cos(), theta1.sin(), theta2.cos(), theta2.sin(), vel1, vel2], -1)
         else:
             return state
 
-    def set_state_(self,state):
-        assert state.shape[-1]==4, 'Trigonometrically transformed states cannot be set!\n'
+    def set_state_(self, state):
+        assert state.shape[-1] == 4, "Trigonometrically transformed states cannot be set!\n"
         self.state = copy.deepcopy(state)
         return self.get_obs()
 
-    def df_du(self,state):
+    def df_du(self, state):
         raise NotImplementedError()
 
     #################### override ##################
@@ -116,20 +150,27 @@ class CTAcrobot(BaseEnv):
         self.time_step = 0
         return self.get_obs()
 
-    def obs2state(self,obs):
-        if obs.shape[-1]==4:
+    def obs2state(self, obs):  # pylint: disable=arguments-renamed
+        if obs.shape[-1] == 4:
             return obs
-        cos_th1,sin_th1,cos_th2,sin_th2,vel1,vel2 = obs[...,0],obs[...,1],obs[...,2],obs[...,3],obs[...,4],obs[...,5]
-        theta1 = self.trigonometric2angle(cos_th1,sin_th1)
-        theta2 = self.trigonometric2angle(cos_th2,sin_th2)
-        return torch.stack([theta1,theta2,vel1,vel2],-1)
+        cos_th1, sin_th1, cos_th2, sin_th2, vel1, vel2 = (
+            obs[..., 0],
+            obs[..., 1],
+            obs[..., 2],
+            obs[..., 3],
+            obs[..., 4],
+            obs[..., 5],
+        )
+        theta1 = self.trigonometric2angle(cos_th1, sin_th1)
+        theta2 = self.trigonometric2angle(cos_th2, sin_th2)
+        return torch.stack([theta1, theta2, vel1, vel2], -1)
 
     def torch_rhs(self, state, action):
-        ''' Input
-                state  [N,n]
-                action [N,m]
-        '''
-        sixD = state.shape[-1]==6
+        """Input
+        state  [N,n]
+        action [N,m]
+        """
+        sixD = state.shape[-1] == 6
         m1 = self.LINK_MASS_1
         m2 = self.LINK_MASS_2
         l1 = self.LINK_LENGTH_1
@@ -139,80 +180,107 @@ class CTAcrobot(BaseEnv):
         I2 = self.LINK_MOI
         g = 9.8
         if sixD:
-            costtheta1 = state[...,0]
-            sintheta1 = state[...,1]
-            costtheta2 = state[...,2]
-            sintheta2 = state[...,3]
-            dtheta1 = state[...,4]
-            dtheta2 = state[...,5]
+            costtheta1 = state[..., 0]
+            sintheta1 = state[..., 1]
+            costtheta2 = state[..., 2]
+            sintheta2 = state[..., 3]
+            dtheta1 = state[..., 4]
+            dtheta2 = state[..., 5]
             C1 = (costtheta1**2 + sintheta1**2).detach()
-            costheta1, sintheta1 = costtheta1/C1, sintheta1/C1
-            theta1 = torch.atan2(sintheta1/C1, costheta1/C1)
+            costheta1, sintheta1 = costtheta1 / C1, sintheta1 / C1
+            theta1 = torch.atan2(sintheta1 / C1, costheta1 / C1)
             C2 = (costtheta2**2 + sintheta2**2).detach()
-            costheta2, sintheta2 = costtheta2/C2, sintheta2/C2
-            theta2 = torch.atan2(sintheta2/C2, costheta2/C2)
+            costheta2, sintheta2 = costtheta2 / C2, sintheta2 / C2
+            theta2 = torch.atan2(sintheta2 / C2, costheta2 / C2)
         else:
-            theta1,theta2,dtheta1,dtheta2 = state[...,0], state[...,1], state[...,2], state[...,3]
-        d1 = m1 * lc1 ** 2 + m2 * \
-            (l1 ** 2 + lc2 ** 2 + 2 * l1 * lc2 * torch.cos(theta2)) + I1 + I2
-        d2 = m2 * (lc2 ** 2 + l1 * lc2 * torch.cos(theta2)) + I2
-        phi2 = m2 * lc2 * g * torch.cos(theta1 + theta2 - pi / 2.)
-        phi1 = - m2 * l1 * lc2 * dtheta2 ** 2 * torch.sin(theta2) \
-               - 2 * m2 * l1 * lc2 * dtheta2 * dtheta1 * torch.sin(theta2)  \
-            + (m1 * lc1 + m2 * l1) * g * torch.cos(theta1 - pi / 2) + phi2
-        ddtheta2 = (action[...,0] + d2 / d1 * phi1 - m2 * l1 * lc2 * dtheta1 ** 2 * torch.sin(theta2) - phi2) \
-            / (m2 * lc2 ** 2 + I2 - d2 ** 2 / d1)
+            theta1, theta2, dtheta1, dtheta2 = (
+                state[..., 0],
+                state[..., 1],
+                state[..., 2],
+                state[..., 3],
+            )
+        d1 = m1 * lc1**2 + m2 * (l1**2 + lc2**2 + 2 * l1 * lc2 * torch.cos(theta2)) + I1 + I2
+        d2 = m2 * (lc2**2 + l1 * lc2 * torch.cos(theta2)) + I2
+        phi2 = m2 * lc2 * g * torch.cos(theta1 + theta2 - pi / 2.0)
+        phi1 = (
+            -m2 * l1 * lc2 * dtheta2**2 * torch.sin(theta2)
+            - 2 * m2 * l1 * lc2 * dtheta2 * dtheta1 * torch.sin(theta2)
+            + (m1 * lc1 + m2 * l1) * g * torch.cos(theta1 - pi / 2)
+            + phi2
+        )
+        ddtheta2 = (action[..., 0] + d2 / d1 * phi1 - m2 * l1 * lc2 * dtheta1**2 * torch.sin(theta2) - phi2) / (
+            m2 * lc2**2 + I2 - d2**2 / d1
+        )
         if self.fully_act:
-            ddtheta1 = -(action[...,1] + d2 * ddtheta2 + phi1) / d1
+            ddtheta1 = -(action[..., 1] + d2 * ddtheta2 + phi1) / d1
         else:
             ddtheta1 = -(d2 * ddtheta2 + phi1) / d1
         if sixD:
-            return torch.stack([-sintheta1*dtheta1/C1,costheta1*dtheta1/C1,-sintheta2*dtheta2/C2,costheta2*dtheta2/C2, ddtheta1, ddtheta2], -1)
+            return torch.stack(
+                [
+                    -sintheta1 * dtheta1 / C1,  # pyright: ignore
+                    costheta1 * dtheta1 / C1,  # pyright: ignore
+                    -sintheta2 * dtheta2 / C2,  # pyright: ignore
+                    costheta2 * dtheta2 / C2,  # pyright: ignore
+                    ddtheta1,
+                    ddtheta2,
+                ],
+                -1,
+            )
         else:
             return torch.stack([dtheta1, dtheta2, ddtheta1, ddtheta2], -1)
 
-
-    def diff_obs_reward_(self,state, exp_reward=False):
-        if state.shape[-1]==6:
+    def diff_obs_reward_(self, state, exp_reward=False):  # pylint: disable=arguments-renamed
+        if state.shape[-1] == 6:
             state = self.obs2state(state)
-        th1,th2,vel1,vel2 = state[...,0],state[...,1],state[...,2],state[...,3]
-        velocity_reward = -vel1**2 - vel2**2
+        th1, th2, vel1, vel2 = (
+            state[..., 0],
+            state[..., 1],
+            state[..., 2],
+            state[..., 3],
+        )
+        velocity_reward = -(vel1**2) - vel2**2
         p1 = [-self.LINK_LENGTH_1 * torch.cos(th1), self.LINK_LENGTH_1 * torch.sin(th1)]
-        p2 = [p1[0] - self.LINK_LENGTH_2 * torch.cos(th1 + th2),
-              p1[1] + self.LINK_LENGTH_2 * torch.sin(th1 + th2)]
-        state_reward = -(p2[0]-self.LINK_LENGTH_1-self.LINK_LENGTH_2)**2 - (p2[1])**2
+        p2 = [
+            p1[0] - self.LINK_LENGTH_2 * torch.cos(th1 + th2),
+            p1[1] + self.LINK_LENGTH_2 * torch.sin(th1 + th2),
+        ]
+        state_reward = -((p2[0] - self.LINK_LENGTH_1 - self.LINK_LENGTH_2) ** 2) - (p2[1]) ** 2
         if exp_reward:
-            return (state_reward + self.vel_rew_const*velocity_reward).exp()
+            return (state_reward + self.vel_rew_const * velocity_reward).exp()
         else:
-            return (state_reward + self.vel_rew_const*velocity_reward)
+            return state_reward + self.vel_rew_const * velocity_reward
 
-    def diff_ac_reward_(self,action):
+    def diff_ac_reward_(self, action):  # pylint: disable=arguments-renamed
         return -self.ac_rew_const * torch.sum(action**2, -1)
 
-    def render(self, mode='human', *args, **kwargs):
+    def render(self, *args, mode="human", **kwargs):
         from gym.envs.classic_control import rendering
+
         s = self.state
         if self.viewer is None:
-            self.viewer = rendering.Viewer(512,512)
+            self.viewer = rendering.Viewer(512, 512)
             bound = self.LINK_LENGTH_1 + self.LINK_LENGTH_2 + 0.2  # 2.2 for default
-            self.viewer.set_bounds(-bound,bound,-bound,bound)
+            self.viewer.set_bounds(-bound, bound, -bound, bound)
         if s is None:
             return None
-        p1 = [-self.LINK_LENGTH_1 *cos(s[0]), self.LINK_LENGTH_1 * sin(s[0])]
-        p2 = [p1[0] - self.LINK_LENGTH_2 * cos(s[0] + s[1]),
-              p1[1] + self.LINK_LENGTH_2 * sin(s[0] + s[1])]
+        p1 = [-self.LINK_LENGTH_1 * cos(s[0]), self.LINK_LENGTH_1 * sin(s[0])]
+        p2 = [
+            p1[0] - self.LINK_LENGTH_2 * cos(s[0] + s[1]),
+            p1[1] + self.LINK_LENGTH_2 * sin(s[0] + s[1]),
+        ]
         # print(p1+p2)
-        xys = np.array([[0,0], p1, p2])[:,::-1]
-        thetas = [s[0]- pi/2, s[0]+s[1]-pi/2]
+        xys = np.array([[0, 0], p1, p2])[:, ::-1]
+        thetas = [s[0] - pi / 2, s[0] + s[1] - pi / 2]
         link_lengths = [self.LINK_LENGTH_1, self.LINK_LENGTH_2]
         self.viewer.draw_line((-2.2, 1), (2.2, 1))
-        for ((x,y),th,llen) in zip(xys, thetas, link_lengths):
-            l,r,t,b = 0, llen, .1, -.1
-            jtransform = rendering.Transform(rotation=th, translation=(x,y))
-            link = self.viewer.draw_polygon([(l,b), (l,t), (r,t), (r,b)])
+        for (x, y), th, llen in zip(xys, thetas, link_lengths):
+            l, r, t, b = 0, llen, 0.1, -0.1
+            jtransform = rendering.Transform(rotation=th, translation=(x, y))
+            link = self.viewer.draw_polygon([(l, b), (l, t), (r, t), (r, b)])
             link.add_attr(jtransform)
-            link.set_color(0,.8, .8)
-            circ = self.viewer.draw_circle(.1)
-            circ.set_color(.8, .8, 0)
+            link.set_color(0, 0.8, 0.8)
+            circ = self.viewer.draw_circle(0.1)  # pyright: ignore
+            circ.set_color(0.8, 0.8, 0)
             circ.add_attr(jtransform)
-        return self.viewer.render(return_rgb_array = mode=='rgb_array')
+        return self.viewer.render(return_rgb_array=mode == "rgb_array")

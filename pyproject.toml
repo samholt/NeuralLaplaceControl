@@ -1,0 +1,24 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=46.1.0"]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+
+[tool.black]
+include = '\.pyi?$'
+line-length = 120
+target-version = ['py38', 'py39', 'py310']
+
+[tool.isort]
+known_first_party = """baseline_models,envs,planners,process_results,ctrl,config,
+mppi_dataset_collector,mppi_with_model,oracle,overlay,train_utils,w_latent_ode,w_nl
+"""
+profile = "black"
+src_paths = ["src"]
+
+[tool.pylint]
+disable = "R,C,fixme,unused-argument,protected-access,attribute-defined-outside-init,import-error"
+generated-members = "torch.*"
+
+# ignored-modules = "scipy.special"

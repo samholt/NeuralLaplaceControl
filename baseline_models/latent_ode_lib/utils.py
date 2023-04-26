@@ -1,20 +1,13 @@
-###########################
-# Latent ODEs for Irregularly-Sampled Time Series
-# Author: Yulia Rubanova
-###########################
+"""
+Latent ODEs for Irregularly-Sampled Time Series
+Author: Yulia Rubanova
+"""
 
-import datetime
-import glob
 import logging
-import math
 import os
 import pickle
-import re
-import subprocess
-from shutil import copyfile
 
 import numpy as np
-import pandas as pd
 import sklearn as sk
 import torch
 import torch.nn as nn
@@ -34,7 +27,7 @@ def save_checkpoint(state, save, epoch):
 
 def get_logger(
     logpath, filepath, package_files=[], displaying=True, saving=True, debug=False
-):
+):  # pylint: disable=dangerous-default-value
     logger = logging.getLogger()
     if debug:
         level = logging.DEBUG
@@ -53,7 +46,7 @@ def get_logger(
 
     for f in package_files:
         logger.info(f)
-        with open(f, "r") as package_f:
+        with open(f, "r") as package_f:  # pylint: disable=unspecified-encoding
             logger.info(package_f.read())
 
     return logger
@@ -92,7 +85,7 @@ def make_dataset(dataset_type="spiral", **kwargs):
         dataset = load_pickle(data_path)["dataset"]
         chiralities = load_pickle(data_path)["chiralities"]
     else:
-        raise Exception("Unknown dataset type " + dataset_type)
+        raise Exception("Unknown dataset type " + dataset_type)  # pylint: disable=broad-exception-raised
     return dataset, chiralities
 
 
@@ -105,7 +98,7 @@ def split_last_dim(data):
 
     if len(data.size()) == 2:
         res = data[:, :last_dim], data[:, last_dim:]
-    return res
+    return res  # pyright: ignore
 
 
 def init_network_weights(net, std=0.1):
@@ -152,9 +145,7 @@ def subsample_timepoints(data, time_steps, mask, n_tp_to_sample=None):
             non_missing_tp = np.where(current_mask > 0)[0]
             n_tp_current = len(non_missing_tp)
             n_to_sample = int(n_tp_current * percentage_tp_to_sample)
-            subsampled_idx = sorted(
-                np.random.choice(non_missing_tp, n_to_sample, replace=False)
-            )
+            subsampled_idx = sorted(np.random.choice(non_missing_tp, n_to_sample, replace=False))
             tp_to_set_to_zero = np.setdiff1d(non_missing_tp, subsampled_idx)
 
             data[i, tp_to_set_to_zero] = 0.0
@@ -171,15 +162,13 @@ def cut_out_timepoints(data, time_steps, mask, n_points_to_cut=None):
     n_tp_in_batch = len(time_steps)
 
     if n_points_to_cut < 1:
-        raise Exception("Number of time points to cut out must be > 1")
+        raise Exception("Number of time points to cut out must be > 1")  # pylint: disable=broad-exception-raised
 
     assert n_points_to_cut <= n_tp_in_batch
     n_points_to_cut = int(n_points_to_cut)
 
     for i in range(data.size(0)):
-        start = np.random.choice(
-            np.arange(5, n_tp_in_batch - n_points_to_cut - 5), replace=False
-        )
+        start = np.random.choice(np.arange(5, n_tp_in_batch - n_points_to_cut - 5), replace=False)
 
         data[i, start : (start + n_points_to_cut)] = 0.0
         if mask is not None:
@@ -251,12 +240,8 @@ def get_next_batch(dataloader):
     # print("data_to_predict")
     # print(batch_dict["data_to_predict"].size())
 
-    if ("mask_predicted_data" in data_dict) and (
-        data_dict["mask_predicted_data"] is not None
-    ):
-        batch_dict["mask_predicted_data"] = data_dict["mask_predicted_data"][
-            :, non_missing_tp
-        ]
+    if ("mask_predicted_data" in data_dict) and (data_dict["mask_predicted_data"] is not None):
+        batch_dict["mask_predicted_data"] = data_dict["mask_predicted_data"][:, non_missing_tp]
 
     if ("labels" in data_dict) and (data_dict["labels"] is not None):
         batch_dict["labels"] = data_dict["labels"]
@@ -267,10 +252,10 @@ def get_next_batch(dataloader):
 
 def get_ckpt_model(ckpt_path, model, device):
     if not os.path.exists(ckpt_path):
-        raise Exception("Checkpoint " + ckpt_path + " does not exist.")
+        raise Exception("Checkpoint " + ckpt_path + " does not exist.")  # pylint: disable=broad-exception-raised
     # Load checkpoint.
     checkpt = torch.load(ckpt_path)
-    ckpt_args = checkpt["args"]
+    ckpt_args = checkpt["args"]  # pylint: disable=unused-variable  # noqa: F841
     state_dict = checkpt["state_dict"]
     model_dict = model.state_dict()
 
@@ -314,11 +299,11 @@ def reverse(tensor):
 
 def create_net(n_inputs, n_outputs, n_layers=1, n_units=100, nonlinear=nn.Tanh):
     layers = [nn.Linear(n_inputs, n_units)]
-    for i in range(n_layers):
-        layers.append(nonlinear())
+    for i in range(n_layers):  # pylint: disable=unused-variable
+        layers.append(nonlinear())  # pyright: ignore
         layers.append(nn.Linear(n_units, n_units))
 
-    layers.append(nonlinear())
+    layers.append(nonlinear())  # pyright: ignore
     layers.append(nn.Linear(n_units, n_outputs))
     return nn.Sequential(*layers)
 
@@ -354,10 +339,10 @@ def normalize_data(data):
     if (att_max != 0.0).all():
         data_norm = (data - att_min) / att_max
     else:
-        raise Exception("Zero!")
+        raise Exception("Zero!")  # pylint: disable=broad-exception-raised
 
     if torch.isnan(data_norm).any():
-        raise Exception("nans!")
+        raise Exception("nans!")  # pylint: disable=broad-exception-raised
 
     return data_norm, att_min, att_max
 
@@ -369,10 +354,10 @@ def normalize_masked_data(data, mask, att_min, att_max):
     if (att_max != 0.0).all():
         data_norm = (data - att_min) / att_max
     else:
-        raise Exception("Zero!")
+        raise Exception("Zero!")  # pylint: disable=broad-exception-raised
 
     if torch.isnan(data_norm).any():
-        raise Exception("nans!")
+        raise Exception("nans!")  # pylint: disable=broad-exception-raised
 
     # set masked out elements back to zero
     data_norm[mask == 0] = 0
@@ -391,7 +376,7 @@ def shift_outputs(outputs, first_datapoint=None):
 
 
 def split_data_extrap(data_dict, dataset=""):
-    device = get_device(data_dict["data"])
+    device = get_device(data_dict["data"])  # pylint: disable=unused-variable  # noqa: F841
 
     n_observed_tp = data_dict["data"].size(1) // 2
     if dataset == "hopper":
@@ -420,7 +405,7 @@ def split_data_extrap(data_dict, dataset=""):
 
 
 def split_data_interp(data_dict):
-    device = get_device(data_dict["data"])
+    device = get_device(data_dict["data"])  # pylint: disable=unused-variable  # noqa: F841
 
     split_dict = {
         "observed_data": data_dict["data"].clone(),
@@ -456,19 +441,18 @@ def add_mask(data_dict):
 
 
 def subsample_observed_data(data_dict, n_tp_to_sample=None, n_points_to_cut=None):
-    # n_tp_to_sample -- if not None, randomly subsample the time points. The resulting timeline has n_tp_to_sample points
-    # n_points_to_cut -- if not None, cut out consecutive points on the timeline.  The resulting timeline has (N - n_points_to_cut) points
+    # n_tp_to_sample -- if not None, randomly subsample the time points.
+    # The resulting timeline has n_tp_to_sample points
+
+    # n_points_to_cut -- if not None, cut out consecutive points on the timeline.
+    # The resulting timeline has (N - n_points_to_cut) points
 
     if n_tp_to_sample is not None:
         # Randomly subsample time points
         data, time_steps, mask = subsample_timepoints(
             data_dict["observed_data"].clone(),
             time_steps=data_dict["observed_tp"].clone(),
-            mask=(
-                data_dict["observed_mask"].clone()
-                if data_dict["observed_mask"] is not None
-                else None
-            ),
+            mask=(data_dict["observed_mask"].clone() if data_dict["observed_mask"] is not None else None),
             n_tp_to_sample=n_tp_to_sample,
         )
 
@@ -477,11 +461,7 @@ def subsample_observed_data(data_dict, n_tp_to_sample=None, n_points_to_cut=None
         data, time_steps, mask = cut_out_timepoints(
             data_dict["observed_data"].clone(),
             time_steps=data_dict["observed_tp"].clone(),
-            mask=(
-                data_dict["observed_mask"].clone()
-                if data_dict["observed_mask"] is not None
-                else None
-            ),
+            mask=(data_dict["observed_mask"].clone() if data_dict["observed_mask"] is not None else None),
             n_points_to_cut=n_points_to_cut,
         )
 
@@ -489,16 +469,16 @@ def subsample_observed_data(data_dict, n_tp_to_sample=None, n_points_to_cut=None
     for key in data_dict.keys():
         new_data_dict[key] = data_dict[key]
 
-    new_data_dict["observed_data"] = data.clone()
-    new_data_dict["observed_tp"] = time_steps.clone()
-    new_data_dict["observed_mask"] = mask.clone()
+    new_data_dict["observed_data"] = data.clone()  # pyright: ignore
+    new_data_dict["observed_tp"] = time_steps.clone()  # pyright: ignore
+    new_data_dict["observed_mask"] = mask.clone()  # pyright: ignore
 
     if n_points_to_cut is not None:
         # Cut the section in the data to predict as well
         # Used only for the demo on the periodic function
-        new_data_dict["data_to_predict"] = data.clone()
-        new_data_dict["tp_to_predict"] = time_steps.clone()
-        new_data_dict["mask_predicted_data"] = mask.clone()
+        new_data_dict["data_to_predict"] = data.clone()  # pyright: ignore
+        new_data_dict["tp_to_predict"] = time_steps.clone()  # pyright: ignore
+        new_data_dict["mask_predicted_data"] = mask.clone()  # pyright: ignore
 
     return new_data_dict
 
@@ -543,7 +523,6 @@ def compute_loss_all_batches_direct(
     classif=0,
     dataset="",
 ):
-
     total = {}
     total["loss"] = 0
     total["likelihood"] = 0
@@ -559,9 +538,7 @@ def compute_loss_all_batches_direct(
     all_test_labels = torch.Tensor([]).to(device).double()
 
     for batch_dict in test_dataloader:
-        results = model.compute_all_losses(
-            batch_dict, n_traj_samples=n_traj_samples, kl_coef=kl_coef
-        )
+        results = model.compute_all_losses(batch_dict, n_traj_samples=n_traj_samples, kl_coef=kl_coef)
         if classif:
             n_labels = model.n_labels  # batch_dict["labels"].size(-1)
             n_traj_samples = results["label_predictions"].size(0)
@@ -573,9 +550,7 @@ def compute_loss_all_batches_direct(
                 ),
                 1,
             )
-            all_test_labels = torch.cat(
-                (all_test_labels, batch_dict["labels"].reshape(-1, n_labels)), 0
-            )
+            all_test_labels = torch.cat((all_test_labels, batch_dict["labels"].reshape(-1, n_labels)), 0)
 
         for key in total.keys():
             if key in results:
@@ -587,7 +562,7 @@ def compute_loss_all_batches_direct(
         n_test_batches += 1
 
     if n_test_batches > 0:
-        for key, value in total.items():
+        for key, value in total.items():  # pylint: disable=unused-variable
             total[key] = total[key] / n_test_batches
 
     if classif:
@@ -606,21 +581,15 @@ def compute_loss_all_batches_direct(
             total["auc"] = 0.0
             if torch.sum(all_test_labels) != 0.0:
                 print(f"Number of labeled examples: {len(all_test_labels.reshape(-1))}")
-                print(
-                    "Number of examples with mortality 1: {}".format(
-                        torch.sum(all_test_labels == 1.0)
-                    )
-                )
+                print("Number of examples with mortality 1: {}".format(torch.sum(all_test_labels == 1.0)))
 
                 # Cannot compute AUC with only 1 class
-                total["auc"] = sk.metrics.roc_auc_score(
+                total["auc"] = sk.metrics.roc_auc_score(  # pyright: ignore
                     all_test_labels.cpu().numpy().reshape(-1),
                     classif_predictions.cpu().numpy().reshape(-1),
                 )
             else:
-                print(
-                    "Warning: Couldn't compute AUC -- all examples are from the same class"
-                )
+                print("Warning: Couldn't compute AUC -- all examples are from the same class")
 
         if dataset == "activity":
             all_test_labels = all_test_labels.repeat(n_traj_samples, 1, 1)
@@ -636,7 +605,7 @@ def compute_loss_all_batches_direct(
 
             pred_class_id = pred_class_id.reshape(-1)
 
-            total["accuracy"] = sk.metrics.accuracy_score(
+            total["accuracy"] = sk.metrics.accuracy_score(  # pyright: ignore
                 class_labels.cpu().numpy(), pred_class_id.cpu().numpy()
             )
     return total
@@ -653,7 +622,6 @@ def compute_loss_all_batches(
     kl_coef=1.0,
     max_samples_for_eval=None,
 ):
-
     total = {}
     total["loss"] = 0
     total["likelihood"] = 0
@@ -673,9 +641,7 @@ def compute_loss_all_batches(
 
         batch_dict = get_next_batch(test_dataloader)
 
-        results = model.compute_all_losses(
-            batch_dict, n_traj_samples=n_traj_samples, kl_coef=kl_coef
-        )
+        results = model.compute_all_losses(batch_dict, n_traj_samples=n_traj_samples, kl_coef=kl_coef)
 
         if args.classif:
             n_labels = model.n_labels  # batch_dict["labels"].size(-1)
@@ -689,7 +655,7 @@ def compute_loss_all_batches(
                 1,
             )
             all_test_labels = torch.cat(
-                (all_test_labels, batch_dict["labels"].reshape(-1, n_labels)), 0
+                (all_test_labels, batch_dict["labels"].reshape(-1, n_labels)), 0  # pyright: ignore
             )
 
         for key in total.keys():
@@ -703,11 +669,11 @@ def compute_loss_all_batches(
 
         # for speed
         if max_samples_for_eval is not None:
-            if n_batches * batch_size >= max_samples_for_eval:
+            if n_batches * batch_size >= max_samples_for_eval:  # type: ignore  # noqa  # pylint: disable=E,W
                 break
 
     if n_test_batches > 0:
-        for key, value in total.items():
+        for key, value in total.items():  # pylint: disable=unused-variable
             total[key] = total[key] / n_test_batches
 
     if args.classif:
@@ -726,21 +692,15 @@ def compute_loss_all_batches(
             total["auc"] = 0.0
             if torch.sum(all_test_labels) != 0.0:
                 print(f"Number of labeled examples: {len(all_test_labels.reshape(-1))}")
-                print(
-                    "Number of examples with mortality 1: {}".format(
-                        torch.sum(all_test_labels == 1.0)
-                    )
-                )
+                print("Number of examples with mortality 1: {}".format(torch.sum(all_test_labels == 1.0)))
 
                 # Cannot compute AUC with only 1 class
-                total["auc"] = sk.metrics.roc_auc_score(
+                total["auc"] = sk.metrics.roc_auc_score(  # pyright: ignore
                     all_test_labels.cpu().numpy().reshape(-1),
                     classif_predictions.cpu().numpy().reshape(-1),
                 )
             else:
-                print(
-                    "Warning: Couldn't compute AUC -- all examples are from the same class"
-                )
+                print("Warning: Couldn't compute AUC -- all examples are from the same class")
 
         if args.dataset == "activity":
             all_test_labels = all_test_labels.repeat(n_traj_samples, 1, 1)
@@ -756,7 +716,7 @@ def compute_loss_all_batches(
 
             pred_class_id = pred_class_id.reshape(-1)
 
-            total["accuracy"] = sk.metrics.accuracy_score(
+            total["accuracy"] = sk.metrics.accuracy_score(  # pyright: ignore
                 class_labels.cpu().numpy(), pred_class_id.cpu().numpy()
             )
     return total

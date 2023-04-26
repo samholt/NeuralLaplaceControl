@@ -141,3 +141,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Custom@
+saved_models/*.pt
+saved_models/*.zip

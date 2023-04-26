@@ -1,51 +1,21 @@
-# Ref: [Latent ODEs for Irregularly-Sampled Time Series](https://github.com/YuliaRubanova/latent_ode)
-import logging
-import os
-import pickle
-import sys
-from copy import deepcopy
-from time import strftime, time
+"""Ref: [Latent ODEs for Irregularly-Sampled Time Series](https://github.com/YuliaRubanova/latent_ode)
+"""
 
-import keyboard
 import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-import torch
-from matplotlib import cm
-from torch import Tensor, nn
-from torchvision import datasets
-from torchvision.transforms import Compose, Lambda, ToTensor
-from tqdm import tqdm
-
-matplotlib.use("Agg")
-import argparse
-import datetime
-import time
-from random import SystemRandom
-
 import matplotlib.pyplot
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from sklearn import model_selection
-from torch.nn.functional import relu
+from torch import nn
 
 from .latent_ode_lib.create_latent_ode_model import create_LatentODE_model_direct
-from .latent_ode_lib.diffeq_solver import DiffeqSolver
-from .latent_ode_lib.ode_func import ODEFunc, ODEFunc_w_Poisson
-from .latent_ode_lib.ode_rnn import *
-from .latent_ode_lib.parse_datasets import parse_datasets
-from .latent_ode_lib.plotting import *
-from .latent_ode_lib.rnn_baselines import *
+from .latent_ode_lib.plotting import Normal
 from .latent_ode_lib.utils import compute_loss_all_batches_direct
+
+matplotlib.use("Agg")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-class GeneralLatentODEOfficial(nn.Module):
+class GeneralLatentODEOfficial(nn.Module):  # pylint: disable=abstract-method
     def __init__(
         self,
         input_dim,
@@ -59,9 +29,7 @@ class GeneralLatentODEOfficial(nn.Module):
 
         obsrv_std = torch.Tensor([obsrv_std]).to(DEVICE)
 
-        z0_prior = Normal(
-            torch.Tensor([0.0]).to(DEVICE), torch.Tensor([1.0]).to(DEVICE)
-        )
+        z0_prior = Normal(torch.Tensor([0.0]).to(DEVICE), torch.Tensor([1.0]).to(DEVICE))
 
         self.model = create_LatentODE_model_direct(
             input_dim,
@@ -114,18 +82,17 @@ class GeneralLatentODEOfficial(nn.Module):
             truth_w_mask = batch["observed_data"]
             if mask is not None:
                 truth_w_mask = torch.cat((batch["observed_data"], mask), -1)
-            mean, std = self.model.encoder_z0(
-                truth_w_mask, torch.flatten(batch["observed_tp"]), run_backwards=True
-            )
+            # pylint: disable-next=unused-variable
+            mean, std = self.model.encoder_z0(truth_w_mask, torch.flatten(batch["observed_tp"]), run_backwards=True)
             encodings.append(mean.view(-1, self.latents))
         return torch.cat(encodings, 0)
 
     def _get_and_reset_nfes(self):
         """Returns and resets the number of function evaluations for model."""
-        iteration_nfes = (
-            self.model.encoder_z0.z0_diffeq_solver.ode_func.nfe
+        iteration_nfes = (  # pyright: ignore
+            self.model.encoder_z0.z0_diffeq_solver.ode_func.nfe  # pyright: ignore
             + self.model.diffeq_solver.ode_func.nfe
         )
-        self.model.encoder_z0.z0_diffeq_solver.ode_func.nfe = 0
+        self.model.encoder_z0.z0_diffeq_solver.ode_func.nfe = 0  # pyright: ignore
         self.model.diffeq_solver.ode_func.nfe = 0
         return iteration_nfes

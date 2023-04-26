@@ -9,7 +9,7 @@ Experiment code for ICML 2021 paper [Continuous-time Model-based Reinforcement L
   - create a continuous-time RL environment
   - initiate our model (with different variational formulations) as well as baselines (PETS & deep PILCO)
   - visualize the dynamics fits
-  - execute the main learning loop (Algorithm-1 in the paper) 
+  - execute the main learning loop (Algorithm-1 in the paper)
 - `ctrl` folder has our model implementation as well as helper functions for training.
   - `ctrl/ctrl`: creates our model and serves as an interface between the model and training/visualization functions.
   - `ctrl/dataset`: contains state-action-reward trajectories and interpolation (for continuous-time action) classes.

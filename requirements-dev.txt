@@ -1,0 +1,8 @@
+# tox-conda
+bandit[toml]
+black[jupyter]
+flake8
+isort
+pre-commit
+pylint
+tox

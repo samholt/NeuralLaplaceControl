@@ -1,23 +1,25 @@
 # build neural networks for regression
+import logging
+
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import matplotlib.pyplot as plt
-import os
-from torchlaplace import laplace_reconstruct
-import time
-import logging
-from config import default_config
-from copy import deepcopy
-from overlay import setup_logger, create_env
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 logger = logging.getLogger()
 
 
-def cartpole_dynamics_dt_delay(state, perturbed_action, ts, delay, ACTION_LOW=-3.0, ACTION_HIGH=3.0, nu=1, friction=False, friction_cart= 5e-4, friction_pole = 2e-6):
+def cartpole_dynamics_dt_delay(
+    state,
+    perturbed_action,
+    ts,
+    delay,
+    ACTION_LOW=-3.0,
+    ACTION_HIGH=3.0,
+    nu=1,
+    friction=False,
+    friction_cart=5e-4,
+    friction_pole=2e-6,
+):
     perturbed_action = perturbed_action[:, -(delay + 1), :nu]
     assert state.shape[0] == perturbed_action.shape[0]
     assert perturbed_action.shape[1] == 1
@@ -31,8 +33,8 @@ def cartpole_dynamics_dt_delay(state, perturbed_action, ts, delay, ACTION_LOW=-3
         sintheta = state[:, 3].view(-1, 1)
         theta_dot = state[:, 4].view(-1, 1)
         C = (costheta**2 + sintheta**2).detach()
-        costheta, sintheta = costheta/C, sintheta/C
-        theta = torch.atan2(sintheta/C, costheta/C)
+        costheta, sintheta = costheta / C, sintheta / C
+        theta = torch.atan2(sintheta / C, costheta / C)
     else:
         x = state[:, 0].view(-1, 1)
         x_dot = state[:, 1].view(-1, 1)
@@ -46,21 +48,25 @@ def cartpole_dynamics_dt_delay(state, perturbed_action, ts, delay, ACTION_LOW=-3
     masscart = 1.0
     masspole = 0.1
     length = 1.0  # actually half the pole's length
-    total_mass = (masspole + masscart)
-    polemass_length = (masspole * length)
+    total_mass = masspole + masscart
+    polemass_length = masspole * length
 
     u = perturbed_action
     u = torch.clamp(u, ACTION_LOW, ACTION_HIGH)
 
-    force = u*force_mag
+    force = u * force_mag
     if friction:
-        temp = (force + polemass_length * theta_dot * theta_dot * sintheta - friction_cart * torch.sign(x_dot)) / total_mass
-        thetaacc = (gravity * sintheta - costheta * temp - friction_pole * theta_dot / polemass_length) / \
-            (length * (4.0/3.0 - masspole * costheta * costheta / total_mass))
+        temp = (
+            force + polemass_length * theta_dot * theta_dot * sintheta - friction_cart * torch.sign(x_dot)
+        ) / total_mass
+        thetaacc = (gravity * sintheta - costheta * temp - friction_pole * theta_dot / polemass_length) / (
+            length * (4.0 / 3.0 - masspole * costheta * costheta / total_mass)
+        )
     else:
         temp = (force + polemass_length * theta_dot * theta_dot * sintheta) / total_mass
-        thetaacc = (gravity * sintheta - costheta * temp) / \
-            (length * (4.0/3.0 - masspole * costheta * costheta / total_mass))
+        thetaacc = (gravity * sintheta - costheta * temp) / (
+            length * (4.0 / 3.0 - masspole * costheta * costheta / total_mass)
+        )
     xacc = temp - polemass_length * thetaacc * costheta / total_mass
 
     if state.shape[-1] == 5:
@@ -79,7 +85,17 @@ def cartpole_dynamics_dt_delay(state, perturbed_action, ts, delay, ACTION_LOW=-3
         state = torch.cat((new_x, new_x_dot, new_theta, new_theta_dot), dim=1)
     return state
 
-def acrobot_dynamics_dt_delay(state, perturbed_action, ts, delay, ACTION_LOW=-5.0, ACTION_HIGH=5.0, nu=2, friction=False):
+
+def acrobot_dynamics_dt_delay(
+    state,
+    perturbed_action,
+    ts,
+    delay,
+    ACTION_LOW=-5.0,
+    ACTION_HIGH=5.0,
+    nu=2,
+    friction=False,
+):
     perturbed_action = perturbed_action[:, -(delay + 1), :nu]
     assert state.shape[0] == perturbed_action.shape[0]
     assert perturbed_action.shape[1] == 2
@@ -94,55 +110,80 @@ def acrobot_dynamics_dt_delay(state, perturbed_action, ts, delay, ACTION_LOW=-5.
         dtheta1 = state[:, 4].view(-1, 1)
         dtheta2 = state[:, 5].view(-1, 1)
         C1 = (costtheta1**2 + sintheta1**2).detach()
-        costheta1, sintheta1 = costtheta1/C1, sintheta1/C1
-        theta1 = torch.atan2(sintheta1/C1, costheta1/C1)
+        costheta1, sintheta1 = costtheta1 / C1, sintheta1 / C1
+        theta1 = torch.atan2(sintheta1 / C1, costheta1 / C1)
         C2 = (costtheta2**2 + sintheta2**2).detach()
-        costheta2, sintheta2 = costtheta2/C2, sintheta2/C2
-        theta2 = torch.atan2(sintheta2/C2, costheta2/C2)
+        costheta2, sintheta2 = costtheta2 / C2, sintheta2 / C2
+        theta2 = torch.atan2(sintheta2 / C2, costheta2 / C2)
     elif state.shape[-1] == 4:
         theta1 = state[:, 0].view(-1, 1)
         theta2 = state[:, 1].view(-1, 1)
         dtheta1 = state[:, 2].view(-1, 1)
         dtheta2 = state[:, 3].view(-1, 1)
 
-    m1 = 1.  #: [kg] mass of link 1
-    m2 = 1.  #: [kg] mass of link 2
-    l1 = 1.  # [m]
+    m1 = 1.0  #: [kg] mass of link 1
+    m2 = 1.0  #: [kg] mass of link 2
+    l1 = 1.0  # [m]
     lc1 = 0.5  #: [m] position of the center of mass of link 1
     lc2 = 0.5  #: [m] position of the center of mass of link 2
-    I1 = 1.  #: moments of inertia for both links
-    I2 = 1.  #: moments of inertia for both links
+    I1 = 1.0  #: moments of inertia for both links
+    I2 = 1.0  #: moments of inertia for both links
     g = 9.8
 
     u = perturbed_action
     u = torch.clamp(u, ACTION_LOW, ACTION_HIGH)
-    d1 = m1 * lc1 ** 2 + m2 * \
-        (l1 ** 2 + lc2 ** 2 + 2 * l1 * lc2 * torch.cos(theta2)) + I1 + I2
+    d1 = m1 * lc1**2 + m2 * (l1**2 + lc2**2 + 2 * l1 * lc2 * torch.cos(theta2)) + I1 + I2  # pyright: ignore
 
-    d2 = m2 * (lc2 ** 2 + l1 * lc2 * torch.cos(theta2)) + I2
+    d2 = m2 * (lc2**2 + l1 * lc2 * torch.cos(theta2)) + I2  # pyright: ignore
 
-    phi2 = m2 * lc2 * g * torch.cos(theta1 + theta2 - np.pi / 2.)
-    phi1 = - m2 * l1 * lc2 * dtheta2 ** 2 * torch.sin(theta2) \
-        - 2 * m2 * l1 * lc2 * dtheta2 * dtheta1 * torch.sin(theta2)  \
-        + (m1 * lc1 + m2 * l1) * g * torch.cos(theta1 - np.pi / 2) + phi2
+    phi2 = m2 * lc2 * g * torch.cos(theta1 + theta2 - np.pi / 2.0)  # pyright: ignore
+    phi1 = (
+        -m2 * l1 * lc2 * dtheta2**2 * torch.sin(theta2)  # pyright: ignore
+        - 2 * m2 * l1 * lc2 * dtheta2 * dtheta1 * torch.sin(theta2)  # pyright: ignore
+        + (m1 * lc1 + m2 * l1) * g * torch.cos(theta1 - np.pi / 2)  # pyright: ignore
+        + phi2
+    )
 
-    ddtheta2 = (u[:, 0].view(-1, 1) + d2 / d1 * phi1 - m2 * l1 * lc2 * dtheta1 ** 2 * torch.sin(theta2) - phi2) \
-        / (m2 * lc2 ** 2 + I2 - d2 ** 2 / d1)
+    ddtheta2 = (
+        u[:, 0].view(-1, 1)
+        + d2 / d1 * phi1
+        - m2 * l1 * lc2 * dtheta1**2 * torch.sin(theta2)  # pyright: ignore
+        - phi2
+    ) / (m2 * lc2**2 + I2 - d2**2 / d1)
 
     ddtheta1 = -(u[:, 1].view(-1, 1) + d2 * ddtheta2 + phi1) / d1
 
-    new_dtheta1 = dtheta1 + ddtheta1 * ts
-    new_dtheta2 = dtheta2 + ddtheta2 * ts
-    new_theta1 = theta1 + dtheta1 * ts
-    new_theta2 = theta2 + dtheta2 * ts
+    new_dtheta1 = dtheta1 + ddtheta1 * ts  # pyright: ignore
+    new_dtheta2 = dtheta2 + ddtheta2 * ts  # pyright: ignore
+    new_theta1 = theta1 + dtheta1 * ts  # pyright: ignore
+    new_theta2 = theta2 + dtheta2 * ts  # pyright: ignore
 
     if state.shape[-1] == 4:
         return torch.cat((new_theta1, new_theta2, new_dtheta1, new_dtheta2), dim=1)
     elif state.shape[-1] == 6:
-        return torch.cat((torch.cos(new_theta1), torch.sin(new_theta1), torch.cos(new_theta2), torch.sin(new_theta2), new_dtheta1, new_dtheta2), dim=1)
+        return torch.cat(
+            (
+                torch.cos(new_theta1),
+                torch.sin(new_theta1),
+                torch.cos(new_theta2),
+                torch.sin(new_theta2),
+                new_dtheta1,
+                new_dtheta2,
+            ),
+            dim=1,
+        )
 
 
-def pendulum_dynamics_dt_delay(state, perturbed_action, ts, delay, ACTION_LOW=-2.0, ACTION_HIGH=2.0, nu=1, friction=False):
+def pendulum_dynamics_dt_delay(
+    state,
+    perturbed_action,
+    ts,
+    delay,
+    ACTION_LOW=-2.0,
+    ACTION_HIGH=2.0,
+    nu=1,
+    friction=False,
+):
     perturbed_action = perturbed_action[:, -(delay + 1), :nu]
     assert state.shape[0] == perturbed_action.shape[0]
     assert perturbed_action.shape[1] == 1
@@ -157,28 +198,31 @@ def pendulum_dynamics_dt_delay(state, perturbed_action, ts, delay, ACTION_LOW=-2
         sinth = state[:, 1].view(-1, 1)
         thdot = state[:, 2].view(-1, 1)
         C = (costh**2 + sinth**2).detach()
-        costheta, sintheta = costh/C, sinth/C
-        th = torch.atan2(sintheta/C, costheta/C)
+        costheta, sintheta = costh / C, sinth / C
+        th = torch.atan2(sintheta / C, costheta / C)
 
     g = 10
     m = 1
-    l = 1
+    l = 1  # noqa: E741
 
     u = perturbed_action
     u = torch.clamp(u, ACTION_LOW, ACTION_HIGH)
 
     if state.shape[-1] == 2:
-        newthdot = thdot + (-3 * g / (2 * l) * torch.sin(th + torch.pi) + 3. / (m * l ** 2) * u) * ts
-        newth = th + thdot * ts
+        newthdot = (
+            thdot + (-3 * g / (2 * l) * torch.sin(th + torch.pi) + 3.0 / (m * l**2) * u) * ts  # pyright: ignore
+        )
+        newth = th + thdot * ts  # pyright: ignore
         state = torch.cat((newth, newthdot), dim=1)
         return state
     elif state.shape[-1] == 3:
-        newth = th + thdot * ts
+        newth = th + thdot * ts  # pyright: ignore
         new_costheta = torch.cos(newth)
         new_sintheta = torch.sin(newth)
-        newthdot = thdot + (-3*g/(2*l) * torch.sin(th+np.pi) + 3./(m*l**2)*u) * ts
+        newthdot = thdot + (-3 * g / (2 * l) * torch.sin(th + np.pi) + 3.0 / (m * l**2) * u) * ts  # pyright: ignore
         state = torch.cat((new_costheta, new_sintheta, newthdot), dim=1)
         return state
+
 
 def cartpole_dynamics_dt_latent_reduced(state, prev_state, perturbed_action, ts, ACTION_LOW=-3.0, ACTION_HIGH=3.0):
     perturbed_action = perturbed_action.view(perturbed_action.shape[0], perturbed_action.shape[-1])
@@ -197,15 +241,15 @@ def cartpole_dynamics_dt_latent_reduced(state, prev_state, perturbed_action, ts,
         sintheta = state[:, 2].view(-1, 1)
         # theta_dot = state[:, 4].view(-1, 1)
         C = (costheta**2 + sintheta**2).detach()
-        costheta, sintheta = costheta/C, sintheta/C
-        theta = torch.atan2(sintheta/C, costheta/C)
+        costheta, sintheta = costheta / C, sintheta / C
+        theta = torch.atan2(sintheta / C, costheta / C)
 
         costhetap = prev_state[:, 1].view(-1, 1)
         sinthetap = prev_state[:, 2].view(-1, 1)
         # theta_dot = state[:, 4].view(-1, 1)
         C = (costhetap**2 + sinthetap**2).detach()
-        costhetap, sinthetap = costhetap/C, sinthetap/C
-        thetap = torch.atan2(sinthetap/C, costhetap/C)
+        costhetap, sinthetap = costhetap / C, sinthetap / C
+        thetap = torch.atan2(sinthetap / C, costhetap / C)
 
         theta_dot = (theta - thetap) / ts
         # print(f'theta_dot: {theta_dot}')
@@ -226,16 +270,17 @@ def cartpole_dynamics_dt_latent_reduced(state, prev_state, perturbed_action, ts,
     masscart = 1.0
     masspole = 0.1
     length = 1.0  # actually half the pole's length
-    total_mass = (masspole + masscart)
-    polemass_length = (masspole * length)
+    total_mass = masspole + masscart
+    polemass_length = masspole * length
 
     u = perturbed_action
     u = torch.clamp(u, ACTION_LOW, ACTION_HIGH)
 
-    force = u*force_mag
+    force = u * force_mag
     temp = (force + polemass_length * theta_dot * theta_dot * sintheta) / total_mass
-    thetaacc = (gravity * sintheta - costheta * temp) / \
-        (length * (4.0/3.0 - masspole * costheta * costheta / total_mass))
+    thetaacc = (gravity * sintheta - costheta * temp) / (
+        length * (4.0 / 3.0 - masspole * costheta * costheta / total_mass)
+    )
     xacc = temp - polemass_length * thetaacc * costheta / total_mass
 
     new_theta_dot = theta_dot + thetaacc * ts
@@ -267,15 +312,15 @@ def cartpole_dynamics_dt_latent(state, prev_state, perturbed_action, ts, ACTION_
         sintheta = state[:, 3].view(-1, 1)
         # theta_dot = state[:, 4].view(-1, 1)
         C = (costheta**2 + sintheta**2).detach()
-        costheta, sintheta = costheta/C, sintheta/C
-        theta = torch.atan2(sintheta/C, costheta/C)
+        costheta, sintheta = costheta / C, sintheta / C
+        theta = torch.atan2(sintheta / C, costheta / C)
 
         costhetap = prev_state[:, 2].view(-1, 1)
         sinthetap = prev_state[:, 3].view(-1, 1)
         # theta_dot = state[:, 4].view(-1, 1)
         C = (costhetap**2 + sinthetap**2).detach()
-        costhetap, sinthetap = costhetap/C, sinthetap/C
-        thetap = torch.atan2(sinthetap/C, costhetap/C)
+        costhetap, sinthetap = costhetap / C, sinthetap / C
+        thetap = torch.atan2(sinthetap / C, costhetap / C)
 
         theta_dot = (theta - thetap) / ts
         # print(f'theta_dot: {theta_dot}')
@@ -296,16 +341,17 @@ def cartpole_dynamics_dt_latent(state, prev_state, perturbed_action, ts, ACTION_
     masscart = 1.0
     masspole = 0.1
     length = 1.0  # actually half the pole's length
-    total_mass = (masspole + masscart)
-    polemass_length = (masspole * length)
+    total_mass = masspole + masscart
+    polemass_length = masspole * length
 
     u = perturbed_action
     u = torch.clamp(u, ACTION_LOW, ACTION_HIGH)
 
-    force = u*force_mag
+    force = u * force_mag
     temp = (force + polemass_length * theta_dot * theta_dot * sintheta) / total_mass
-    thetaacc = (gravity * sintheta - costheta * temp) / \
-        (length * (4.0/3.0 - masspole * costheta * costheta / total_mass))
+    thetaacc = (gravity * sintheta - costheta * temp) / (
+        length * (4.0 / 3.0 - masspole * costheta * costheta / total_mass)
+    )
     xacc = temp - polemass_length * thetaacc * costheta / total_mass
 
     if state.shape[-1] == 5:
@@ -342,8 +388,8 @@ def cartpole_dynamics_dt(state, perturbed_action, ts, ACTION_LOW=-3.0, ACTION_HI
         sintheta = state[:, 3].view(-1, 1)
         theta_dot = state[:, 4].view(-1, 1)
         C = (costheta**2 + sintheta**2).detach()
-        costheta, sintheta = costheta/C, sintheta/C
-        theta = torch.atan2(sintheta/C, costheta/C)
+        costheta, sintheta = costheta / C, sintheta / C
+        theta = torch.atan2(sintheta / C, costheta / C)
     else:
         x = state[:, 0].view(-1, 1)
         x_dot = state[:, 1].view(-1, 1)
@@ -357,16 +403,17 @@ def cartpole_dynamics_dt(state, perturbed_action, ts, ACTION_LOW=-3.0, ACTION_HI
     masscart = 1.0
     masspole = 0.1
     length = 1.0  # actually half the pole's length
-    total_mass = (masspole + masscart)
-    polemass_length = (masspole * length)
+    total_mass = masspole + masscart
+    polemass_length = masspole * length
 
     u = perturbed_action
     u = torch.clamp(u, ACTION_LOW, ACTION_HIGH)
 
-    force = u*force_mag
+    force = u * force_mag
     temp = (force + polemass_length * theta_dot * theta_dot * sintheta) / total_mass
-    thetaacc = (gravity * sintheta - costheta * temp) / \
-        (length * (4.0/3.0 - masspole * costheta * costheta / total_mass))
+    thetaacc = (gravity * sintheta - costheta * temp) / (
+        length * (4.0 / 3.0 - masspole * costheta * costheta / total_mass)
+    )
     xacc = temp - polemass_length * thetaacc * costheta / total_mass
 
     if state.shape[-1] == 5:
@@ -400,26 +447,28 @@ def pendulum_dynamics_dt(state, perturbed_action, ts, ACTION_LOW=-2.0, ACTION_HI
         sinth = state[:, 1].view(-1, 1)
         thdot = state[:, 2].view(-1, 1)
         C = (costh**2 + sinth**2).detach()
-        costheta, sintheta = costh/C, sinth/C
-        th = torch.atan2(sintheta/C, costheta/C)
+        costheta, sintheta = costh / C, sinth / C
+        th = torch.atan2(sintheta / C, costheta / C)
 
     g = 10
     m = 1
-    l = 1
+    l = 1  # noqa: E741
 
     u = perturbed_action
     u = torch.clamp(u, ACTION_LOW, ACTION_HIGH)
 
     if state.shape[-1] == 2:
-        newthdot = thdot + (-3 * g / (2 * l) * torch.sin(th + torch.pi) + 3. / (m * l ** 2) * u) * ts
-        newth = th + thdot * ts
+        newthdot = (
+            thdot + (-3 * g / (2 * l) * torch.sin(th + torch.pi) + 3.0 / (m * l**2) * u) * ts  # pyright: ignore
+        )
+        newth = th + thdot * ts  # pyright: ignore
         state = torch.cat((newth, newthdot), dim=1)
         return state
     elif state.shape[-1] == 3:
-        newth = th + thdot * ts
+        newth = th + thdot * ts  # pyright: ignore
         new_costheta = torch.cos(newth)
         new_sintheta = torch.sin(newth)
-        newthdot = thdot + (-3*g/(2*l) * torch.sin(th+np.pi) + 3./(m*l**2)*u) * ts
+        newthdot = thdot + (-3 * g / (2 * l) * torch.sin(th + np.pi) + 3.0 / (m * l**2) * u) * ts  # pyright: ignore
         state = torch.cat((new_costheta, new_sintheta, newthdot), dim=1)
         return state
 
@@ -438,50 +487,66 @@ def acrobot_dynamics_dt(state, perturbed_action, ts, ACTION_LOW=-5.0, ACTION_HIG
         dtheta1 = state[:, 4].view(-1, 1)
         dtheta2 = state[:, 5].view(-1, 1)
         C1 = (costtheta1**2 + sintheta1**2).detach()
-        costheta1, sintheta1 = costtheta1/C1, sintheta1/C1
-        theta1 = torch.atan2(sintheta1/C1, costheta1/C1)
+        costheta1, sintheta1 = costtheta1 / C1, sintheta1 / C1
+        theta1 = torch.atan2(sintheta1 / C1, costheta1 / C1)
         C2 = (costtheta2**2 + sintheta2**2).detach()
-        costheta2, sintheta2 = costtheta2/C2, sintheta2/C2
-        theta2 = torch.atan2(sintheta2/C2, costheta2/C2)
+        costheta2, sintheta2 = costtheta2 / C2, sintheta2 / C2
+        theta2 = torch.atan2(sintheta2 / C2, costheta2 / C2)
     elif state.shape[-1] == 4:
         theta1 = state[:, 0].view(-1, 1)
         theta2 = state[:, 1].view(-1, 1)
         dtheta1 = state[:, 2].view(-1, 1)
         dtheta2 = state[:, 3].view(-1, 1)
 
-    m1 = 1.  #: [kg] mass of link 1
-    m2 = 1.  #: [kg] mass of link 2
-    l1 = 1.  # [m]
+    m1 = 1.0  #: [kg] mass of link 1
+    m2 = 1.0  #: [kg] mass of link 2
+    l1 = 1.0  # [m]
     lc1 = 0.5  #: [m] position of the center of mass of link 1
     lc2 = 0.5  #: [m] position of the center of mass of link 2
-    I1 = 1.  #: moments of inertia for both links
-    I2 = 1.  #: moments of inertia for both links
+    I1 = 1.0  #: moments of inertia for both links
+    I2 = 1.0  #: moments of inertia for both links
     g = 9.8
 
     u = perturbed_action
     u = torch.clamp(u, ACTION_LOW, ACTION_HIGH)
-    d1 = m1 * lc1 ** 2 + m2 * \
-        (l1 ** 2 + lc2 ** 2 + 2 * l1 * lc2 * torch.cos(theta2)) + I1 + I2
+    d1 = m1 * lc1**2 + m2 * (l1**2 + lc2**2 + 2 * l1 * lc2 * torch.cos(theta2)) + I1 + I2  # pyright: ignore
 
-    d2 = m2 * (lc2 ** 2 + l1 * lc2 * torch.cos(theta2)) + I2
+    d2 = m2 * (lc2**2 + l1 * lc2 * torch.cos(theta2)) + I2  # pyright: ignore
 
-    phi2 = m2 * lc2 * g * torch.cos(theta1 + theta2 - np.pi / 2.)
-    phi1 = - m2 * l1 * lc2 * dtheta2 ** 2 * torch.sin(theta2) \
-        - 2 * m2 * l1 * lc2 * dtheta2 * dtheta1 * torch.sin(theta2)  \
-        + (m1 * lc1 + m2 * l1) * g * torch.cos(theta1 - np.pi / 2) + phi2
+    phi2 = m2 * lc2 * g * torch.cos(theta1 + theta2 - np.pi / 2.0)  # pyright: ignore
+    phi1 = (
+        -m2 * l1 * lc2 * dtheta2**2 * torch.sin(theta2)  # pyright: ignore
+        - 2 * m2 * l1 * lc2 * dtheta2 * dtheta1 * torch.sin(theta2)  # pyright: ignore
+        + (m1 * lc1 + m2 * l1) * g * torch.cos(theta1 - np.pi / 2)  # pyright: ignore
+        + phi2
+    )
 
-    ddtheta2 = (u[:, 0].view(-1, 1) + d2 / d1 * phi1 - m2 * l1 * lc2 * dtheta1 ** 2 * torch.sin(theta2) - phi2) \
-        / (m2 * lc2 ** 2 + I2 - d2 ** 2 / d1)
+    ddtheta2 = (
+        u[:, 0].view(-1, 1)
+        + d2 / d1 * phi1
+        - m2 * l1 * lc2 * dtheta1**2 * torch.sin(theta2)  # pyright: ignore
+        - phi2
+    ) / (m2 * lc2**2 + I2 - d2**2 / d1)
 
     ddtheta1 = -(u[:, 1].view(-1, 1) + d2 * ddtheta2 + phi1) / d1
 
-    new_dtheta1 = dtheta1 + ddtheta1 * ts
-    new_dtheta2 = dtheta2 + ddtheta2 * ts
-    new_theta1 = theta1 + dtheta1 * ts
-    new_theta2 = theta2 + dtheta2 * ts
+    new_dtheta1 = dtheta1 + ddtheta1 * ts  # pyright: ignore
+    new_dtheta2 = dtheta2 + ddtheta2 * ts  # pyright: ignore
+    new_theta1 = theta1 + dtheta1 * ts  # pyright: ignore
+    new_theta2 = theta2 + dtheta2 * ts  # pyright: ignore
 
     if state.shape[-1] == 4:
         state = torch.cat((new_theta1, new_theta2, new_dtheta1, new_dtheta2), dim=1)
     elif state.shape[-1] == 6:
-        state = torch.cat((torch.cos(new_theta1), torch.sin(new_theta1), torch.cos(new_theta2), torch.sin(new_theta2), new_dtheta1, new_dtheta2), dim=1)
+        state = torch.cat(
+            (
+                torch.cos(new_theta1),
+                torch.sin(new_theta1),
+                torch.cos(new_theta2),
+                torch.sin(new_theta2),
+                new_dtheta1,
+                new_dtheta2,
+            ),
+            dim=1,
+        )
     return state

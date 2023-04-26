@@ -1,12 +1,11 @@
-###########################
-# Latent ODEs for Irregularly-Sampled Time Series
-# Author: Yulia Rubanova
-###########################
+"""
+Latent ODEs for Irregularly-Sampled Time Series
+Author: Yulia Rubanova
+"""
 
 import os
 
 import matplotlib
-import matplotlib.pyplot
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -106,7 +105,6 @@ def plot_std(
     alpha=0.2,
     color=None,
 ):
-
     # take only the first (and only?) dimension
     mean_minus_std = (traj - traj_std).cpu().numpy()[:, :, 0]
     mean_plus_std = (traj + traj_std).cpu().numpy()[:, :, 0]
@@ -126,9 +124,7 @@ def plot_vector_field(ax, odefunc, latent_dim, device):
     K = 13j
     y, x = np.mgrid[-6:6:K, -6:6:K]
     K = int(K.imag)
-    zs = torch.from_numpy(np.stack([x, y], -1).reshape(K * K, 2)).to(
-        device, torch.float32
-    )
+    zs = torch.from_numpy(np.stack([x, y], -1).reshape(K * K, 2)).to(device, torch.float32)
     if latent_dim > 2:
         # Plots dimensions 0 and 2
         zs = torch.cat((zs, torch.zeros(K * K, latent_dim - 2)), 1)
@@ -168,9 +164,7 @@ def get_meshgrid(npts, int_y1, int_y2):
 
     xx, yy = np.meshgrid(y1_grid, y2_grid)
 
-    flat_inputs = np.concatenate(
-        (np.expand_dims(xx.flatten(), 1), np.expand_dims(yy.flatten(), 1)), 1
-    )
+    flat_inputs = np.concatenate((np.expand_dims(xx.flatten(), 1), np.expand_dims(yy.flatten(), 1)), 1)
     flat_inputs = torch.from_numpy(flat_inputs).float()
 
     return xx, yy, flat_inputs
@@ -196,16 +190,16 @@ class Visualizations:
 
         self.ax_traj = []
         for i in range(1, 4):
-            self.ax_traj.append(self.fig.add_subplot(2, 3, i, frameon=False))
+            self.ax_traj.append(self.fig.add_subplot(2, 3, i, frameon=False))  # pyright: ignore
 
         # self.ax_density = []
         # for i in range(4,7):
         # 	self.ax_density.append(self.fig.add_subplot(3,3,i, frameon=False))
 
         # self.ax_samples_same_traj = self.fig.add_subplot(3,3,7, frameon=False)
-        self.ax_latent_traj = self.fig.add_subplot(2, 3, 4, frameon=False)
-        self.ax_vector_field = self.fig.add_subplot(2, 3, 5, frameon=False)
-        self.ax_traj_from_prior = self.fig.add_subplot(2, 3, 6, frameon=False)
+        self.ax_latent_traj = self.fig.add_subplot(2, 3, 4, frameon=False)  # pyright: ignore
+        self.ax_vector_field = self.fig.add_subplot(2, 3, 5, frameon=False)  # pyright: ignore
+        self.ax_traj_from_prior = self.fig.add_subplot(2, 3, 6, frameon=False)  # pyright: ignore
 
         self.plot_limits = {}
         plt.show(block=False)
@@ -219,13 +213,10 @@ class Visualizations:
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
 
-    def draw_one_density_plot(
-        self, ax, model, data_dict, traj_id, multiply_by_poisson=False
-    ):
-
+    def draw_one_density_plot(self, ax, model, data_dict, traj_id, multiply_by_poisson=False):
         scale = 5
-        cmap = add_white(plt.cm.get_cmap("Blues", 9))  # plt.cm.BuGn_r
-        cmap2 = add_white(plt.cm.get_cmap("Reds", 9))  # plt.cm.BuGn_r
+        cmap = add_white(plt.cm.get_cmap("Blues", 9))  # plt.cm.BuGn_r  # pyright: ignore
+        cmap2 = add_white(plt.cm.get_cmap("Reds", 9))  # plt.cm.BuGn_r  # pyright: ignore
         # cmap = plt.cm.get_cmap('viridis')
 
         data = data_dict["data_to_predict"]
@@ -237,22 +228,16 @@ class Visualizations:
         observed_mask = data_dict["observed_mask"]
 
         npts = 50
-        xx, yy, z0_grid = get_meshgrid(
-            npts=npts, int_y1=(-scale, scale), int_y2=(-scale, scale)
-        )
+        xx, yy, z0_grid = get_meshgrid(npts=npts, int_y1=(-scale, scale), int_y2=(-scale, scale))
         z0_grid = z0_grid.to(get_device(data))
 
         if model.latent_dim > 2:
-            z0_grid = torch.cat(
-                (z0_grid, torch.zeros(z0_grid.size(0), model.latent_dim - 2)), 1
-            )
+            z0_grid = torch.cat((z0_grid, torch.zeros(z0_grid.size(0), model.latent_dim - 2)), 1)
 
         if model.use_poisson_proc:
-            n_traj, n_dims = z0_grid.size()
+            n_traj, n_dims = z0_grid.size()  # pylint: disable=unused-variable
             # append a vector of zeros to compute the integral of lambda and also zeros for the first point of lambda
-            zeros = torch.zeros([n_traj, model.input_dim + model.latent_dim]).to(
-                get_device(data)
-            )
+            zeros = torch.zeros([n_traj, model.input_dim + model.latent_dim]).to(get_device(data))
             z0_grid_aug = torch.cat((z0_grid, zeros), -1)
         else:
             z0_grid_aug = z0_grid
@@ -300,8 +285,8 @@ class Visualizations:
         # Plot p(t | y(t0))
         if model.use_poisson_proc:
             poisson_info = {}
-            poisson_info["int_lambda"] = int_lambda[:, :, -1, :]
-            poisson_info["log_lambda_y"] = log_lambda_y
+            poisson_info["int_lambda"] = int_lambda[:, :, -1, :]  # pyright: ignore
+            poisson_info["log_lambda_y"] = log_lambda_y  # pyright: ignore
 
             poisson_log_density_grid = compute_poisson_proc_likelihood(
                 one_traj.repeat(npts**2, 1, 1).unsqueeze(0),
@@ -316,7 +301,7 @@ class Visualizations:
 
         log_joint_density = prior_density_grid + masked_gaussian_log_density_grid
         if multiply_by_poisson:
-            log_joint_density = log_joint_density + poisson_log_density_grid
+            log_joint_density = log_joint_density + poisson_log_density_grid  # pyright: ignore
 
         density_grid = torch.exp(log_joint_density)
 
@@ -333,9 +318,7 @@ class Visualizations:
 
         data_w_mask = observed_data[traj_id].unsqueeze(0)
         if observed_mask is not None:
-            data_w_mask = torch.cat(
-                (data_w_mask, observed_mask[traj_id].unsqueeze(0)), -1
-            )
+            data_w_mask = torch.cat((data_w_mask, observed_mask[traj_id].unsqueeze(0)), -1)
         z0_mu, z0_std = model.encoder_z0(data_w_mask, observed_time_steps)
 
         if model.use_poisson_proc:
@@ -354,10 +337,7 @@ class Visualizations:
 
         ax.contourf(xx, yy, density_grid, cmap=cmap2, alpha=0.3)
 
-    def draw_all_plots_one_dim(
-        self, data_dict, model, plot_name="", save=False, experimentID=0.0
-    ):
-
+    def draw_all_plots_one_dim(self, data_dict, model, plot_name="", save=False, experimentID=0.0):
         time_steps = data_dict["tp_to_predict"]
 
         observed_data = data_dict["observed_data"]
@@ -369,9 +349,7 @@ class Visualizations:
         time_steps_to_predict = time_steps
         if isinstance(model, LatentODE):
             # sample at the original time points
-            time_steps_to_predict = (
-                linspace_vector(time_steps[0], time_steps[-1], 100).to(device).double()
-            )
+            time_steps_to_predict = linspace_vector(time_steps[0], time_steps[-1], 100).to(device).double()
 
         reconstructions, info = model.get_reconstruction(
             time_steps_to_predict,
@@ -401,7 +379,7 @@ class Visualizations:
         ############################################
         # Plot reconstructions, true postrior and approximate posterior
 
-        cmap = plt.cm.get_cmap("Set1")
+        cmap = plt.cm.get_cmap("Set1")  # pyright: ignore
         for traj_id in range(3):
             # Plot observations
             plot_trajectories(
@@ -447,6 +425,7 @@ class Visualizations:
             # 	multiply_by_poisson = False)
             # self.set_plot_lims(self.ax_density[traj_id], "density_" + str(traj_id))
             # self.ax_density[traj_id].set_title("Sample {}: p(z0) and q(z0 | x)".format(traj_id))
+
         ############################################
         # Get several samples for the same trajectory
         # one_traj = data_for_plotting[:1]
@@ -467,10 +446,9 @@ class Visualizations:
             torch.manual_seed(1991)
             np.random.seed(1991)
 
-            traj_from_prior = model.sample_traj_from_prior(
-                time_steps_to_predict, n_traj_samples=3
-            )
-            # Since in this case n_traj = 1, n_traj_samples -- requested number of samples from the prior, squeeze n_traj dimension
+            traj_from_prior = model.sample_traj_from_prior(time_steps_to_predict, n_traj_samples=3)
+            # Since in this case n_traj = 1, n_traj_samples --
+            # requested number of samples from the prior, squeeze n_traj dimension
             traj_from_prior = traj_from_prior.squeeze(1)
 
             plot_trajectories(
@@ -482,6 +460,7 @@ class Visualizations:
             )
             self.ax_traj_from_prior.set_title("Samples from prior (data space)", pad=20)
             # self.set_plot_lims(self.ax_traj_from_prior, "traj_from_prior")
+
         ################################################
 
         # Plot z0
@@ -499,9 +478,7 @@ class Visualizations:
         ################################################
         # Show vector field
         self.ax_vector_field.cla()
-        plot_vector_field(
-            self.ax_vector_field, model.diffeq_solver.ode_func, model.latent_dim, device
-        )
+        plot_vector_field(self.ax_vector_field, model.diffeq_solver.ode_func, model.latent_dim, device)
         self.ax_vector_field.set_title("Slice of vector field (latent space)", pad=20)
         self.set_plot_lims(self.ax_vector_field, "vector_field")
         # self.ax_vector_field.set_ylim((-0.5, 1.5))
@@ -515,7 +492,7 @@ class Visualizations:
         # shape before permute: [1, n_tp, n_latent_dims]
 
         self.ax_latent_traj.cla()
-        cmap = plt.cm.get_cmap("Accent")
+        cmap = plt.cm.get_cmap("Accent")  # pyright: ignore
         n_latent_dims = latent_traj.size(-1)
 
         custom_labels = {}
@@ -536,9 +513,7 @@ class Visualizations:
 
         self.ax_latent_traj.set_ylabel("z")
         self.ax_latent_traj.set_title("Latent trajectories z(t) (latent space)", pad=20)
-        self.ax_latent_traj.legend(
-            custom_labels.values(), custom_labels.keys(), loc="lower left"
-        )
+        self.ax_latent_traj.legend(custom_labels.values(), custom_labels.keys(), loc="lower left")
         self.set_plot_lims(self.ax_latent_traj, "latent_traj")
 
         ################################################

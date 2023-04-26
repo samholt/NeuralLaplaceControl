@@ -1,17 +1,13 @@
-###########################
-# Latent ODEs for Irregularly-Sampled Time Series
-# Author: Yulia Rubanova
-###########################
+"""
+Latent ODEs for Irregularly-Sampled Time Series
+Author: Yulia Rubanova
+"""
 
-import time
-
-import numpy as np
 import torch
 import torch.nn as nn
-from torch.distributions.multivariate_normal import MultivariateNormal
-
-# git clone https://github.com/rtqichen/torchdiffeq.git
 from torchdiffeq import odeint as odeint
+
+# ^ git clone https://github.com/rtqichen/torchdiffeq.git
 
 #####################################################################################################
 
@@ -42,7 +38,7 @@ class DiffeqSolver(nn.Module):
         # Decode the trajectory through ODE Solver
         """
         n_traj_samples, n_traj = first_point.size()[0], first_point.size()[1]
-        n_dims = first_point.size()[-1]
+        n_dims = first_point.size()[-1]  # pylint: disable=unused-variable  # noqa: F841
 
         pred_y = odeint(
             self.ode_func,
@@ -52,7 +48,7 @@ class DiffeqSolver(nn.Module):
             atol=self.odeint_atol,
             method=self.ode_method,
         )
-        pred_y = pred_y.permute(1, 2, 0, 3)
+        pred_y = pred_y.permute(1, 2, 0, 3)  # pyright: ignore
 
         assert torch.mean(pred_y[:, :, 0, :] - first_point) < 0.001
         assert pred_y.size()[0] == n_traj_samples
@@ -60,9 +56,7 @@ class DiffeqSolver(nn.Module):
 
         return pred_y
 
-    def sample_traj_from_prior(
-        self, starting_point_enc, time_steps_to_predict, n_traj_samples=1
-    ):
+    def sample_traj_from_prior(self, starting_point_enc, time_steps_to_predict, n_traj_samples=1):
         """
         # Decode the trajectory through ODE Solver using samples from the prior
 
@@ -79,5 +73,5 @@ class DiffeqSolver(nn.Module):
             method=self.ode_method,
         )
         # shape: [n_traj_samples, n_traj, n_tp, n_dim]
-        pred_y = pred_y.permute(1, 2, 0, 3)
+        pred_y = pred_y.permute(1, 2, 0, 3)  # pyright: ignore
         return pred_y

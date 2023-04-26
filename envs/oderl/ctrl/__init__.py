@@ -1,4 +1,3 @@
-from .policy import Policy
-# from .utils import plot_model, plot_test, collect_data
-from .dynamics import NODE, PETS, DeepPILCO
-from .dataset import Dataset
+from .dataset import Dataset  # noqa: F401
+from .dynamics import NODE, PETS, DeepPILCO  # noqa: F401
+from .policy import Policy  # noqa: F401
